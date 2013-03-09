@@ -1,0 +1,15 @@
+<RCC>
+    <qresource prefix="/unittests/ClangCodeModel">
+        <file>cxx_regression_1.cpp</file>
+        <file>cxx_regression_2.cpp</file>
+        <file>cxx_regression_3.cpp</file>
+        <file>cxx_regression_4.cpp</file>
+        <file>cxx_regression_5.cpp</file>
+        <file>cxx_regression_6.cpp</file>
+        <file>cxx_regression_7.cpp</file>
+        <file>cxx_regression_8.cpp</file>
+        <file>cxx_regression_9.cpp</file>
+        <file>cxx_snippets_1.cpp</file>
+        <file>cxx_snippets_2.cpp</file>
+    </qresource>
+</RCC>
