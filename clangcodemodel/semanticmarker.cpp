@@ -146,10 +146,10 @@ QList<Diagnostic> SemanticMarker::diagnostics() const
 
         // Attach messages with Diagnostic::Note severity
         ScopedCXDiagnosticSet cxChildren(clang_getChildDiagnostics(diag));
-        const unsigned size = qMin(ATTACHED_NOTES_LIMIT,
-                                   clang_getNumDiagnosticsInSet(cxChildren));
-        for (unsigned i = 0; i < size; ++i) {
-            CXDiagnostic child = clang_getDiagnosticInSet(cxChildren, i);
+        const unsigned numChildren = clang_getNumDiagnosticsInSet(cxChildren);
+        const unsigned size = qMin(ATTACHED_NOTES_LIMIT, numChildren);
+        for (unsigned di = 0; di < size; ++di) {
+            ScopedCXDiagnostic child(clang_getDiagnosticInSet(cxChildren, di));
             spelling.append(QLatin1String("\n  "));
             spelling.append(Internal::getQString(clang_getDiagnosticSpelling(child)));
         }
@@ -157,8 +157,10 @@ QList<Diagnostic> SemanticMarker::diagnostics() const
         // Fatal error may occur in another file, but it breaks whole parsing
         // Typical fatal error is unresolved #include
         if (severity == Diagnostic::Fatal) {
-            CXDiagnostic child = clang_getDiagnosticInSet(cxChildren, i);
-            appendDiagnostic(child, clang_getDiagnosticLocation(child), Diagnostic::Warning, spelling, diagnostics);
+            for (unsigned di = 0; di < numChildren; ++di) {
+                ScopedCXDiagnostic child(clang_getDiagnosticInSet(cxChildren, di));
+                appendDiagnostic(child, clang_getDiagnosticLocation(child), Diagnostic::Warning, spelling, diagnostics);
+            }
         }
 
         appendDiagnostic(diag, cxLocation, severity, spelling, diagnostics);
