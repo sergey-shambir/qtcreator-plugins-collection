@@ -2,11 +2,11 @@
 
 ## set the QTC_SOURCE environment variable to override the setting here
 QTCREATOR_SOURCES = $$(QTC_SOURCE)
-isEmpty(QTCREATOR_SOURCES):QTCREATOR_SOURCES=$$PWD/../qtcreator-2.7.0~beta
+isEmpty(QTCREATOR_SOURCES):QTCREATOR_SOURCES=$$PWD/../ubuntu-qtc/qt-creator-2.7.0
 
 ## set the QTC_BUILD environment variable to override the setting here
 IDE_BUILD_TREE = $$(QTC_BUILD)
-isEmpty(IDE_BUILD_TREE):IDE_BUILD_TREE=$$PWD/../build-qtcreator-GCC-Release
+isEmpty(IDE_BUILD_TREE):IDE_BUILD_TREE=$$PWD/../ubuntu-qtc/build-qtcreator-qt5_clang_x64-Release
 isEmpty(LLVM_INSTALL_DIR):LLVM_INSTALL_DIR=/usr
 
 ## uncomment to build plugin into user config directory
