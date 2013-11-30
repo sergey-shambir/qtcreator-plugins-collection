@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -36,6 +36,8 @@
 #include "sourcemarker.h"
 #include "utils.h"
 
+#include <texteditor/itexteditor.h>
+
 #include <QMutex>
 #include <QScopedPointer>
 #include <QSharedPointer>
@@ -70,6 +72,8 @@ public:
     void reparse(const Internal::UnsavedFiles &unsavedFiles);
 
     QList<Diagnostic> diagnostics() const;
+
+    QList<TextEditor::BlockRange> ifdefedOutBlocks() const;
 
     QList<SourceMarker> sourceMarkersInRange(unsigned firstLine,
                                              unsigned lastLine);

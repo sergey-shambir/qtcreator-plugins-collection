@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -30,15 +30,8 @@
 #ifndef CLANGPLUGIN_H
 #define CLANGPLUGIN_H
 
+#include "clangmodelmanagersupport.h"
 #include "liveunitsmanager.h"
-
-#ifdef CLANG_HIGHLIGHTING
-#  include "clanghighlightingsupport.h"
-#endif // CLANG_HIGHLIGHTING
-
-#ifdef CLANG_COMPLETION
-#  include "clangcompletion.h"
-#endif // CLANG_COMPLETION
 
 #ifdef CLANG_INDEXING
 #  include "clangindexer.h"
@@ -52,21 +45,16 @@ namespace Internal {
 class ClangCodeModelPlugin: public ExtensionSystem::IPlugin
 {
     Q_OBJECT
-    Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QtCreatorPlugin" FILE "ClangCodeModelPlugin.json")
+    Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QtCreatorPlugin" FILE "ClangCodeModel.json")
 
 public:
-    ClangCodeModelPlugin();
-
     bool initialize(const QStringList &arguments, QString *errorMessage);
 
     void extensionsInitialized();
 
-    virtual ShutdownFlag aboutToShutdown();
-
 private:
     LiveUnitsManager m_liveUnitsManager;
-    QScopedPointer<ClangCompletionAssistProvider> m_completionAssistProvider;
-    QScopedPointer<ClangHighlightingSupportFactory> m_highlightingFactory;
+    QScopedPointer<ModelManagerSupport> m_modelManagerSupport;
 #ifdef CLANG_INDEXING
     QScopedPointer<ClangIndexer> m_indexer;
 #endif // CLANG_INDEXING
@@ -77,6 +65,8 @@ private slots:
     void test_CXX_regressions_data();
     void test_CXX_snippets();
     void test_CXX_snippets_data();
+    void test_ObjC_hints();
+    void test_ObjC_hints_data();
 #endif
 };
 

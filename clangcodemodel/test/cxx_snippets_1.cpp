@@ -44,5 +44,5 @@ void foo()
     int data[] = {
         1, 2, 3
     };
-    char *cdata = @;
+    char *cdata = <<<<;
 }

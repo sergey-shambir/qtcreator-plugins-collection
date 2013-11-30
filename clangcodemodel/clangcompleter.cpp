@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -52,7 +52,6 @@ public:
         : m_mutex(QMutex::Recursive)
         , m_isSignalSlotCompletion(false)
     {
-        m_unit.setManagementOptions(clang_defaultEditingTranslationUnitOptions());
     }
 
     ~PrivateData()
@@ -64,6 +63,13 @@ public:
         Q_ASSERT(!m_unit.isLoaded());
         if (m_unit.fileName().isEmpty())
             return false;
+
+        unsigned opts = clang_defaultEditingTranslationUnitOptions();
+#if defined(CINDEX_VERSION) && (CINDEX_VERSION > 5)
+        opts |= CXTranslationUnit_CacheCompletionResults;
+        opts |= CXTranslationUnit_IncludeBriefCommentsInCodeCompletion;
+#endif
+        m_unit.setManagementOptions(opts);
 
         m_unit.setUnsavedFiles(unsavedFiles);
         m_unit.parse();

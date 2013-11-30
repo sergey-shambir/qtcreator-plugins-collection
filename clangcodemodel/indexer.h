@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -34,7 +34,7 @@
 #include "symbol.h"
 #include "unit.h"
 
-#include <cpptools/ModelManagerInterface.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 
 #include <QtCore/QObject>
 #include <QtCore/QString>
@@ -55,7 +55,7 @@ class CLANG_EXPORT Indexer : public QObject
     Q_OBJECT
 
 public:
-    typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
+    typedef CppTools::ProjectPart ProjectPart;
 
 public:
     Indexer(QObject *parent = 0);

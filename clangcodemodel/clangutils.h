@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -32,26 +32,25 @@
 
 #include "utils.h"
 
-#include <cpptools/ModelManagerInterface.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 
 namespace ClangCodeModel {
 namespace Utils {
 
-ClangCodeModel::Internal::UnsavedFiles createUnsavedFiles(CPlusPlus::CppModelManagerInterface::WorkingCopy workingCopy);
+ClangCodeModel::Internal::UnsavedFiles createUnsavedFiles(CppTools::CppModelManagerInterface::WorkingCopy workingCopy);
 
-QStringList createClangOptions(const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &pPart, const QString &fileName = QString());
-QStringList createClangOptions(const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &pPart, bool isObjectiveC, bool isHeader);
-QStringList createClangOptions(CPlusPlus::CppModelManagerInterface::ProjectPart::Language lang,
-                               bool isObjC,
-                               bool isHeader,
-                               CPlusPlus::CppModelManagerInterface::ProjectPart::QtVersion qtVersion,
-                               const QList<QByteArray> &defines,
-                               const QStringList &includePaths,
-                               const QStringList &frameworkPaths);
-QStringList clangNonProjectFileOptions();
-QStringList clangLanguageOption(bool cxxEnabled, bool isHeader, bool isObjC);
+QStringList createClangOptions(const CppTools::ProjectPart::Ptr &pPart, CppTools::ProjectFile::Kind fileKind);
+QStringList createClangOptions(const CppTools::ProjectPart::Ptr &pPart, const QString &fileName = QString());
+QStringList clangNonProjectFileOptions(CppTools::ProjectFile::Kind kind);
 QStringList createPCHInclusionOptions(const QStringList &pchFiles);
 QStringList createPCHInclusionOptions(const QString &pchFile);
+
+QStringList clangLanguageOption(CppTools::ProjectFile::Kind fileKind);
+QStringList clangOptionsForC(CppTools::ProjectPart::CVersion cVersion,
+                             CppTools::ProjectPart::CXXExtensions cxxExtensions);
+QStringList clangOptionsForCxx(CppTools::ProjectPart::QtVersion qtVersion,
+                                     CppTools::ProjectPart::CXXVersion cxxVersion,
+                                     CppTools::ProjectPart::CXXExtensions cxxExtensions);
 
 } // namespace Utils
 } // namespace Clang

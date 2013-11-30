@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -76,8 +76,8 @@ public:
 
 public slots:
     void onAboutToLoadSession(const QString &sessionName);
-    void onSessionLoaded();
-    void onAboutToUnloadSession();
+    void onSessionLoaded(QString);
+    void onAboutToSaveSession();
 
 private slots:
     void onIndexingStarted(QFuture<void> indexingFuture);

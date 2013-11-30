@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -42,9 +42,9 @@ namespace Internal {
 
 QPair<bool, QStringList> precompile(const PCHInfo::Ptr &pchInfo)
 {
-    qDebug() << "*** Precompiling" << pchInfo->inputFileName()
-             << "into" << pchInfo->fileName()
-             << "with options" << pchInfo->options();
+//    qDebug() << "*** Precompiling" << pchInfo->inputFileName()
+//             << "into" << pchInfo->fileName()
+//             << "with options" << pchInfo->options();
 
     bool ok = false;
 

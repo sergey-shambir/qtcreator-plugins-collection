@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -35,7 +35,7 @@
 
 #include <coreplugin/icore.h>
 #include <coreplugin/progressmanager/progressmanager.h>
-#include <cpptools/ModelManagerInterface.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 #include <projectexplorer/projectexplorer.h>
 #include <projectexplorer/session.h>
 
@@ -79,9 +79,9 @@ ClangIndexer::ClangIndexer()
     connect(session, SIGNAL(aboutToLoadSession(QString)),
             this, SLOT(onAboutToLoadSession(QString)));
     connect(session, SIGNAL(sessionLoaded(QString)),
-            this, SLOT(onSessionLoaded()));
-    connect(session, SIGNAL(aboutToUnloadSession(QString)),
-            this, SLOT(onAboutToUnloadSession()));
+            this, SLOT(onSessionLoaded(QString)));
+    connect(session, SIGNAL(aboutToSaveSession()),
+            this, SLOT(onAboutToSaveSession()));
 }
 
 ClangIndexer::~ClangIndexer()
@@ -96,8 +96,8 @@ CppTools::CppIndexingSupport *ClangIndexer::indexingSupport()
 
 QFuture<void> ClangIndexer::refreshSourceFiles(const QStringList &sourceFiles)
 {
-    typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
-    CPlusPlus::CppModelManagerInterface *mmi = CPlusPlus::CppModelManagerInterface::instance();
+    typedef CppTools::ProjectPart ProjectPart;
+    CppTools::CppModelManagerInterface *mmi = CppTools::CppModelManagerInterface::instance();
     LiveUnitsManager *lum = LiveUnitsManager::instance();
 
     if (m_clangIndexer->isBusy())
@@ -136,23 +136,23 @@ void ClangIndexer::onAboutToLoadSession(const QString &sessionName)
         m_clangIndexer->initialize(path + sessionName + QLatin1String(".qci"));
 }
 
-void ClangIndexer::onSessionLoaded()
+void ClangIndexer::onSessionLoaded(QString)
 {
     m_isLoadingSession = false;
     m_clangIndexer->regenerate();
 }
 
-void ClangIndexer::onAboutToUnloadSession()
+void ClangIndexer::onAboutToSaveSession()
 {
     m_clangIndexer->finalize();
 }
 
 void ClangIndexer::indexNow(const ClangCodeModel::Internal::Unit &unit)
 {
-    typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
+    typedef CppTools::ProjectPart ProjectPart;
 
     QString file = unit.fileName();
-    CPlusPlus::CppModelManagerInterface *mmi = CPlusPlus::CppModelManagerInterface::instance();
+    CppTools::CppModelManagerInterface *mmi = CppTools::CppModelManagerInterface::instance();
     const QList<ProjectPart::Ptr> &parts = mmi->projectPart(file);
     ProjectPart::Ptr part;
     if (!parts.isEmpty())

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -29,14 +29,11 @@
 
 #include "clangutils.h"
 
-#include <coreplugin/editormanager/editormanager.h>
-#include <coreplugin/editormanager/ieditor.h>
-#include <coreplugin/icore.h>
+#include <clang-c/Index.h>
 
-#include <projectexplorer/kit.h>
-#include <projectexplorer/kitmanager.h>
-#include <projectexplorer/kitinformation.h>
-#include <projectexplorer/toolchain.h>
+#include <coreplugin/documentmanager.h>
+#include <coreplugin/icore.h>
+#include <coreplugin/idocument.h>
 
 #include <QFile>
 #include <QSet>
@@ -45,66 +42,10 @@
 using namespace ClangCodeModel;
 using namespace ClangCodeModel::Internal;
 using namespace Core;
-using namespace ProjectExplorer;
+using namespace CppTools;
 
-typedef CPlusPlus::CppModelManagerInterface::ProjectPart CppProjectPart;
-
-UnsavedFiles ClangCodeModel::Utils::createUnsavedFiles(CPlusPlus::CppModelManagerInterface::WorkingCopy workingCopy)
-{
-    // TODO: change the modelmanager to hold one working copy, and amend it every time we ask for one.
-    // TODO: Reason: the UnsavedFile needs a QByteArray.
-
-    ICore *core = ICore::instance(); // FIXME
-    QSet<QString> openFiles;
-    foreach (IEditor *editor, core->editorManager()->openedEditors())
-        openFiles.insert(editor->document()->fileName());
-
-    UnsavedFiles result;
-    QHashIterator<QString, QPair<QString, unsigned> > wcIter = workingCopy.iterator();
-    while (wcIter.hasNext()) {
-        wcIter.next();
-        const QString &fileName = wcIter.key();
-        if (openFiles.contains(fileName) && QFile(fileName).exists())
-            result.insert(fileName, wcIter.value().first.toUtf8());
-    }
-
-    return result;
-}
-
-/**
- * @brief Creates list of command-line arguments required for correct parsing
- * @param pPart - null if file isn't part of any project
- * @param fileName - path to file, source isn't ObjC if name is empty
- */
-QStringList ClangCodeModel::Utils::createClangOptions(const CppProjectPart::Ptr &pPart, const QString &fileName)
-{
-    if (pPart.isNull())
-        return clangNonProjectFileOptions();
-
-    const bool isObjC = fileName.isEmpty() ? false : pPart->objcSourceFiles.contains(fileName);
-    const bool isHeader = fileName.isEmpty() ? false : pPart->headerFiles.contains(fileName);
-
-    return createClangOptions(pPart, isObjC, isHeader);
-}
-
-/**
- * @brief Creates list of command-line arguments required for correct parsing
- * @param pPart - null if file isn't part of any project
- * @param isObjectiveC - file is ObjectiveC or ObjectiveC++
- */
-QStringList ClangCodeModel::Utils::createClangOptions(const CppProjectPart::Ptr &pPart, bool isObjectiveC, bool isHeader)
-{
-    if (pPart.isNull())
-        return clangNonProjectFileOptions();
-
-    return createClangOptions(pPart->language,
-                              isObjectiveC,
-                              isHeader,
-                              pPart->qtVersion,
-                              pPart->defines.split('\n'),
-                              pPart->includePaths,
-                              pPart->frameworkPaths);
-}
+namespace ClangCodeModel {
+namespace Utils {
 
 namespace {
 bool isBlacklisted(const QString &path)
@@ -120,49 +61,81 @@ bool isBlacklisted(const QString &path)
 }
 } // anonymous namespace
 
-QStringList ClangCodeModel::Utils::createClangOptions(CppProjectPart::Language lang,
-                                                      bool isObjC,
-                                                      bool isHeader,
-                                                      CppProjectPart::QtVersion qtVersion,
-                                                      const QList<QByteArray> &defines,
-                                                      const QStringList &includePaths,
-                                                      const QStringList &frameworkPaths)
+UnsavedFiles createUnsavedFiles(CppModelManagerInterface::WorkingCopy workingCopy)
 {
-    QStringList result;
+    // TODO: change the modelmanager to hold one working copy, and amend it every time we ask for one.
+    // TODO: Reason: the UnsavedFile needs a QByteArray.
 
-    switch (lang) {
-    case CppProjectPart::C89:
-        result << QLatin1String("-std=gnu89");
-        result << ClangCodeModel::Utils::clangLanguageOption(false, isHeader, isObjC);
-        break;
-    case CppProjectPart::C99:
-        result << QLatin1String("-std=gnu99");
-        result << ClangCodeModel::Utils::clangLanguageOption(false, isHeader, isObjC);
-        break;
-    case CppProjectPart::CXX:
-        result << QLatin1String("-std=gnu++98");
-        result << ClangCodeModel::Utils::clangLanguageOption(true, isHeader, isObjC);
-        break;
-    case CppProjectPart::CXX11:
-        result << QLatin1String("-std=c++11");
-        result << ClangCodeModel::Utils::clangLanguageOption(true, isHeader, isObjC);
-        break;
+    QSet<QString> modifiedFiles;
+    foreach (IDocument *doc, Core::DocumentManager::modifiedDocuments())
+        modifiedFiles.insert(doc->filePath());
+
+    UnsavedFiles result;
+    QHashIterator<QString, QPair<QByteArray, unsigned> > wcIter = workingCopy.iterator();
+    while (wcIter.hasNext()) {
+        wcIter.next();
+        const QString &fileName = wcIter.key();
+        if (modifiedFiles.contains(fileName) && QFile(fileName).exists())
+            result.insert(fileName, wcIter.value().first);
+    }
+
+    return result;
+}
+
+/**
+ * @brief Creates list of command-line arguments required for correct parsing
+ * @param pPart Null if file isn't part of any project
+ * @param fileName Path to file, non-empty
+ */
+QStringList createClangOptions(const ProjectPart::Ptr &pPart, const QString &fileName)
+{
+    ProjectFile::Kind fileKind = ProjectFile::Unclassified;
+    if (!pPart.isNull())
+        foreach (const ProjectFile &file, pPart->files)
+            if (file.path == fileName) {
+                fileKind = file.kind;
+                break;
+            }
+    if (fileKind == ProjectFile::Unclassified)
+        fileKind = ProjectFile::classify(fileName);
+
+    return createClangOptions(pPart, fileKind);
+}
+
+/**
+ * @brief Creates list of command-line arguments required for correct parsing
+ * @param pPart Null if file isn't part of any project
+ * @param fileKind Determines language and source/header state
+ */
+QStringList createClangOptions(const ProjectPart::Ptr &pPart, ProjectFile::Kind fileKind)
+{
+    QStringList result = clangLanguageOption(fileKind);
+    switch (fileKind) {
     default:
+    case CppTools::ProjectFile::CXXHeader:
+    case CppTools::ProjectFile::CXXSource:
+    case CppTools::ProjectFile::ObjCXXHeader:
+    case CppTools::ProjectFile::ObjCXXSource:
+    case CppTools::ProjectFile::CudaSource:
+    case CppTools::ProjectFile::OpenCLSource:
+        result << clangOptionsForCxx(pPart->qtVersion,
+                                     pPart->cxxVersion,
+                                     pPart->cxxExtensions);
+        break;
+    case CppTools::ProjectFile::CHeader:
+    case CppTools::ProjectFile::CSource:
+    case CppTools::ProjectFile::ObjCHeader:
+    case CppTools::ProjectFile::ObjCSource:
+        result << clangOptionsForC(pPart->cVersion,
+                                   pPart->cxxExtensions);
         break;
     }
 
-    static const QString injectedHeader(Core::ICore::instance()->resourcePath() + QLatin1String("/cplusplus/qt%1-qobjectdefs-injected.h"));
-    if (qtVersion == CppProjectPart::Qt4)
-        result << QLatin1String("-include") << injectedHeader.arg(QLatin1Char('4'));
-    if (qtVersion == CppProjectPart::Qt5)
-        result << QLatin1String("-include") << injectedHeader.arg(QLatin1Char('5'));
+    if (pPart.isNull())
+        return result;
+    QList<QByteArray> defines = pPart->defines.split('\n');
 
-#ifdef _MSC_VER
-    result << QLatin1String("-fms-extensions")
-           << QLatin1String("-fdelayed-template-parsing");
-#endif
-
-//    result << QLatin1String("-nobuiltininc");
+    result << QLatin1String("-nostdinc");
 
     foreach (QByteArray def, defines) {
         if (def.isEmpty())
@@ -189,9 +162,9 @@ QStringList ClangCodeModel::Utils::createClangOptions(CppProjectPart::Language l
         if (!result.contains(arg))
             result.append(arg);
     }
-    foreach (const QString &frameworkPath, frameworkPaths)
+    foreach (const QString &frameworkPath, pPart->frameworkPaths)
         result.append(QLatin1String("-F") + frameworkPath);
-    foreach (const QString &inc, includePaths)
+    foreach (const QString &inc, pPart->includePaths)
         if (!inc.isEmpty() && !isBlacklisted(inc))
             result << (QLatin1String("-I") + inc);
 
@@ -205,66 +178,8 @@ QStringList ClangCodeModel::Utils::createClangOptions(CppProjectPart::Language l
     return result;
 }
 
-QStringList ClangCodeModel::Utils::clangNonProjectFileOptions()
-{
-    if (Kit *kit = KitManager::instance()->defaultKit()) {
-        ToolChain *tc = ToolChainKitInformation::toolChain(kit);
-        const bool isObjetiveC = false;
-        const bool isHeader = false;
-        const QStringList cxxflags;
-        QStringList includePaths;
-        QStringList frameworkPaths;
-        foreach (const HeaderPath &header, tc->systemHeaderPaths(cxxflags, SysRootKitInformation::sysRoot(kit)))
-            if (header.kind() == HeaderPath::FrameworkHeaderPath)
-                frameworkPaths += header.path();
-            else
-                includePaths += header.path();
-
-        QStringList ret = createClangOptions(CppProjectPart::CXX11,
-                                  isObjetiveC,
-                                  isHeader,
-                                  CppProjectPart::NoQt,
-                                  tc->predefinedMacros(cxxflags).split('\n'),
-                                  includePaths,
-                                  frameworkPaths);
-        return ret;
-    }
-    QStringList ret;
-    ret << QLatin1String("-x")
-        << QLatin1String("c++")
-        << QLatin1String("-std=c++11")
-        << QLatin1String("-I.");
-    return ret;
-}
-
-QStringList ClangCodeModel::Utils::clangLanguageOption(bool cxxEnabled,
-                                                      bool isHeader,
-                                                      bool isObjC)
-{
-    QStringList opts;
-    opts += QLatin1String("-x");
-
-    if (cxxEnabled && isHeader && isObjC)
-        opts += QLatin1String("objective-c++-header");
-    else if (!cxxEnabled && isHeader && isObjC)
-        opts += QLatin1String("objective-c-header");
-    else if (cxxEnabled && !isHeader && isObjC)
-        opts += QLatin1String("objective-c++");
-    else if (!cxxEnabled && !isHeader && isObjC)
-        opts += QLatin1String("objective-c");
-    else if (cxxEnabled && isHeader && !isObjC)
-        opts += QLatin1String("c++-header");
-    else if (!cxxEnabled && isHeader && !isObjC)
-        opts += QLatin1String("c-header");
-    else if (cxxEnabled && !isHeader && !isObjC)
-        opts += QLatin1String("c++");
-    else // !cxxEnabled && !isHeader && !isObjC
-        opts += QLatin1String("c");
-
-    return opts;
-}
-
-QStringList ClangCodeModel::Utils::createPCHInclusionOptions(const QStringList &pchFiles)
+/// @return Option to speed up parsing with precompiled header
+QStringList createPCHInclusionOptions(const QStringList &pchFiles)
 {
     QStringList opts;
 
@@ -278,7 +193,118 @@ QStringList ClangCodeModel::Utils::createPCHInclusionOptions(const QStringList &
     return opts;
 }
 
-QStringList ClangCodeModel::Utils::createPCHInclusionOptions(const QString &pchFile)
+/// @return Option to speed up parsing with precompiled header
+QStringList createPCHInclusionOptions(const QString &pchFile)
 {
     return createPCHInclusionOptions(QStringList() << pchFile);
 }
+
+/// @return "-std" flag to select standard, flags for C extensions
+QStringList clangOptionsForC(ProjectPart::CVersion cVersion, ProjectPart::CXXExtensions cxxExtensions)
+{
+    QStringList opts;
+    bool gnuExpensions = cxxExtensions & ProjectPart::GnuExtensions;
+    switch (cVersion) {
+    case ProjectPart::C89:
+        opts << (gnuExpensions ? QLatin1String("-std=gnu89") : QLatin1String("-std=c89"));
+        break;
+    case ProjectPart::C99:
+        opts << (gnuExpensions ? QLatin1String("-std=gnu99") : QLatin1String("-std=c99"));
+        break;
+    case ProjectPart::C11:
+        opts << (gnuExpensions ? QLatin1String("-std=gnu11") : QLatin1String("-std=c11"));
+        break;
+    }
+
+    if (cxxExtensions & ProjectPart::MicrosoftExtensions) {
+        opts << QLatin1String("-fms-extensions");
+    }
+
+#if defined(CINDEX_VERSION) // clang 3.2 or higher
+    if (cxxExtensions & ProjectPart::BorlandExtensions)
+        opts << QLatin1String("-fborland-extensions");
+#endif
+
+    return opts;
+}
+
+/// @return "-std" flag to select standard, flags for C++ extensions, Qt injections
+QStringList clangOptionsForCxx(ProjectPart::QtVersion qtVersion,
+                                      ProjectPart::CXXVersion cxxVersion,
+                                      ProjectPart::CXXExtensions cxxExtensions)
+{
+    QStringList opts;
+    bool gnuExpensions = cxxExtensions & ProjectPart::GnuExtensions;
+    switch (cxxVersion) {
+    case ProjectPart::CXX11:
+        opts << (gnuExpensions ? QLatin1String("-std=gnu++11") : QLatin1String("-std=c++11"));
+        break;
+    case ProjectPart::CXX98:
+        opts << (gnuExpensions ? QLatin1String("-std=gnu++98") : QLatin1String("-std=c++98"));
+        break;
+    }
+
+    if (cxxExtensions & ProjectPart::MicrosoftExtensions) {
+        opts << QLatin1String("-fms-extensions")
+             << QLatin1String("-fdelayed-template-parsing");
+    }
+
+#if defined(CINDEX_VERSION) // clang 3.2 or higher
+    if (cxxExtensions & ProjectPart::BorlandExtensions)
+        opts << QLatin1String("-fborland-extensions");
+#endif
+
+    static const QString injectedHeader(Core::ICore::instance()->resourcePath() + QLatin1String("/cplusplus/qt%1-qobjectdefs-injected.h"));
+//    if (qtVersion == ProjectPart::Qt4)
+//        opts << QLatin1String("-include") << injectedHeader.arg(QLatin1Char('4'));
+    if (qtVersion == ProjectPart::Qt5)
+        opts << QLatin1String("-include") << injectedHeader.arg(QLatin1Char('5'));
+
+    return opts;
+}
+
+/// @return "-x language-code"
+QStringList clangLanguageOption(ProjectFile::Kind fileKind)
+{
+    QStringList opts;
+    opts += QLatin1String("-x");
+
+    switch (fileKind) {
+    case ProjectFile::CXXHeader:
+    default:
+        opts += QLatin1String("c++-header");
+        break;
+    case ProjectFile::CXXSource:
+        opts += QLatin1String("c++");
+        break;
+    case ProjectFile::CHeader:
+        opts += QLatin1String("c-header");
+        break;
+    case ProjectFile::CSource:
+        opts += QLatin1String("c");
+        break;
+    case ProjectFile::ObjCHeader:
+        opts += QLatin1String("objective-c-header");
+        break;
+    case ProjectFile::ObjCSource:
+        opts += QLatin1String("objective-c");
+        break;
+    case ProjectFile::ObjCXXHeader:
+        opts += QLatin1String("objective-c++-header");
+        break;
+    case ProjectFile::ObjCXXSource:
+        opts += QLatin1String("objective-c++");
+        break;
+    case ProjectFile::OpenCLSource:
+        opts += QLatin1String("cl");
+        break;
+    case ProjectFile::CudaSource:
+        opts += QLatin1String("cuda");
+        break;
+    }
+
+    return opts;
+}
+
+} // namespace Utils
+} // namespace Clang

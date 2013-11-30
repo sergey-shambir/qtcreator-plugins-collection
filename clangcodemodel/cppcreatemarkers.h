@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -33,6 +33,7 @@
 #include "fastindexer.h"
 #include "sourcemarker.h"
 #include "semanticmarker.h"
+#include "pchinfo.h"
 
 #include <texteditor/semantichighlighter.h>
 
@@ -45,16 +46,17 @@ namespace ClangCodeModel {
 class CreateMarkers:
         public QObject,
         public QRunnable,
-        public QFutureInterface<TextEditor::SemanticHighlighter::Result>
+        public QFutureInterface<TextEditor::HighlightingResult>
 {
     Q_OBJECT
+    Q_DISABLE_COPY(CreateMarkers)
 
 public:
     virtual ~CreateMarkers();
 
     virtual void run();
 
-    typedef TextEditor::SemanticHighlighter::Result SourceMarker;
+    typedef TextEditor::HighlightingResult SourceMarker;
 
     typedef QFuture<SourceMarker> Future;
 
@@ -71,22 +73,22 @@ public:
                                  const QString &fileName,
                                  const QStringList &options,
                                  unsigned firstLine, unsigned lastLine,
-                                 Internal::FastIndexer *fastIndexer);
+                                 Internal::FastIndexer *fastIndexer,
+                                 const Internal::PCHInfo::Ptr &pchInfo);
 
     void addUse(const SourceMarker &marker);
     void flush();
-
-signals:
-    void diagnosticsReady(const QList<ClangCodeModel::Diagnostic> &diagnostics);
 
 protected:
     CreateMarkers(ClangCodeModel::SemanticMarker::Ptr semanticMarker,
                   const QString &fileName, const QStringList &options,
                   unsigned firstLine, unsigned lastLine,
-                  Internal::FastIndexer *fastIndexer);
+                  Internal::FastIndexer *fastIndexer,
+                  const Internal::PCHInfo::Ptr &pchInfo);
 
 private:
     ClangCodeModel::SemanticMarker::Ptr m_marker;
+    Internal::PCHInfo::Ptr m_pchInfo;
     QString m_fileName;
     QStringList m_options;
     unsigned m_firstLine;

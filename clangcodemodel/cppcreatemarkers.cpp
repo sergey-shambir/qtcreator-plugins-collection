@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -30,6 +30,8 @@
 #include "clangutils.h"
 #include "cppcreatemarkers.h"
 
+#include <cplusplus/CppDocument.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 #include <utils/runextensions.h>
 
 #include <QCoreApplication>
@@ -38,58 +40,49 @@
 
 #include <QDebug>
 
-#define SEMANTIC_MARKERS_COUNT
-//#define DEBUG_TIMING
+#undef DEBUG_TIMING
 
 using namespace ClangCodeModel;
 using namespace ClangCodeModel::Internal;
 using namespace CppTools;
 
-#ifdef SEMANTIC_MARKERS_COUNT
-static QBasicAtomicInt unitDataCount = Q_BASIC_ATOMIC_INITIALIZER(0);
-#endif
-
 CreateMarkers *CreateMarkers::create(SemanticMarker::Ptr semanticMarker,
                                      const QString &fileName,
                                      const QStringList &options,
                                      unsigned firstLine, unsigned lastLine,
-                                     FastIndexer *fastIndexer)
+                                     FastIndexer *fastIndexer,
+                                     const Internal::PCHInfo::Ptr &pchInfo)
 {
     if (semanticMarker.isNull())
         return 0;
     else
-        return new CreateMarkers(semanticMarker, fileName, options, firstLine, lastLine, fastIndexer);
+        return new CreateMarkers(semanticMarker, fileName, options, firstLine, lastLine, fastIndexer, pchInfo);
 }
 
 CreateMarkers::CreateMarkers(SemanticMarker::Ptr semanticMarker,
                              const QString &fileName,
                              const QStringList &options,
                              unsigned firstLine, unsigned lastLine,
-                             FastIndexer *fastIndexer)
+                             FastIndexer *fastIndexer,
+                             const Internal::PCHInfo::Ptr &pchInfo)
     : m_marker(semanticMarker)
+    , m_pchInfo(pchInfo)
     , m_fileName(fileName)
     , m_options(options)
     , m_firstLine(firstLine)
     , m_lastLine(lastLine)
     , m_fastIndexer(fastIndexer)
 {
-#ifdef SEMANTIC_MARKERS_COUNT
-    qDebug() << "# CreateMarkers:" << (unitDataCount.fetchAndAddOrdered(1) + 1);
-#endif // SEMANTIC_MARKERS_COUNT
     Q_ASSERT(!semanticMarker.isNull());
 
     m_flushRequested = false;
     m_flushLine = 0;
 
-    m_unsavedFiles = Utils::createUnsavedFiles(CPlusPlus::CppModelManagerInterface::instance()->workingCopy());
+    m_unsavedFiles = Utils::createUnsavedFiles(CppModelManagerInterface::instance()->workingCopy());
 }
 
 CreateMarkers::~CreateMarkers()
-{
-#ifdef SEMANTIC_MARKERS_COUNT
-        qDebug() << "# CreateMarkers:" << (unitDataCount.fetchAndAddOrdered(-1) - 1);
-#endif // SEMANTIC_MARKERS_COUNT
-}
+{ }
 
 void CreateMarkers::run()
 {
@@ -99,7 +92,7 @@ void CreateMarkers::run()
 
 #ifdef DEBUG_TIMING
     qDebug() << "*** Highlighting from" << m_firstLine << "to" << m_lastLine << "of" << m_fileName;
-    qDebug() << "***** Options: " << m_options.join(" ");
+    qDebug() << "***** Options: " << m_options.join(QLatin1String(" "));
     QTime t; t.start();
 #endif // DEBUG_TIMING
 
@@ -112,25 +105,53 @@ void CreateMarkers::run()
     qDebug() << "*** Reparse for highlighting took" << t.elapsed() << "ms.";
 #endif // DEBUG_TIMING
 
+    m_pchInfo.clear();
+
+    typedef CPlusPlus::Document::DiagnosticMessage OtherDiagnostic;
+    QList<OtherDiagnostic> msgs;
     QList<ClangCodeModel::Diagnostic> diagnostics;
     foreach (const ClangCodeModel::Diagnostic &d, m_marker->diagnostics()) {
 #ifdef DEBUG_TIMING
         qDebug() << d.severityAsString() << d.location() << d.spelling();
 #endif // DEBUG_TIMING
-        if (d.location().fileName() == m_marker->fileName())
-            diagnostics.append(d);
-    }
-    emit diagnosticsReady(diagnostics);
+        if (d.location().fileName() != m_marker->fileName())
+            continue;
 
-    if (isCanceled())
+        int level;
+        switch (d.severity()) {
+        case Diagnostic::Fatal: level = OtherDiagnostic::Fatal; break;
+        case Diagnostic::Error: level = OtherDiagnostic::Error; break;
+        case Diagnostic::Warning: level = OtherDiagnostic::Warning; break;
+        default: continue;
+        }
+        msgs.append(OtherDiagnostic(level, d.location().fileName(), d.location().line(),
+                                    d.location().column(), d.spelling(), d.length()));
+    }
+    if (isCanceled()) {
+        reportFinished();
         return;
+    }
+
+    CppModelManagerInterface *mmi = CppModelManagerInterface::instance();
+    static const QString key = QLatin1String("ClangCodeModel.Diagnostics");
+    mmi->setExtraDiagnostics(m_marker->fileName(), key, msgs);
+#if CINDEX_VERSION_MINOR >= 21
+    mmi->setIfdefedOutBlocks(m_marker->fileName(), m_marker->ifdefedOutBlocks());
+#endif
+
+    if (isCanceled()) {
+        reportFinished();
+        return;
+    }
 
     QList<ClangCodeModel::SourceMarker> markers = m_marker->sourceMarkersInRange(m_firstLine, m_lastLine);
     foreach (const ClangCodeModel::SourceMarker &m, markers)
         addUse(SourceMarker(m.location().line(), m.location().column(), m.length(), m.kind()));
 
-    if (isCanceled())
+    if (isCanceled()) {
+        reportFinished();
         return;
+    }
 
     flush();
     reportFinished();
@@ -143,7 +164,7 @@ void CreateMarkers::run()
     if (m_fastIndexer)
         m_fastIndexer->indexNow(m_marker->unit());
 
-#ifdef DEBUG_TIMING
+#if defined(DEBUG_TIMING) && defined(CLANG_INDEXING)
     qDebug() << "*** Fast re-indexing took" << t.elapsed() << "ms in total.";
 #endif // DEBUG_TIMING
 }

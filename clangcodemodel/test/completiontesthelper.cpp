@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -120,9 +120,12 @@ void CompletionTestHelper::addOption(const QString &option)
 
 void CompletionTestHelper::findCompletionPos()
 {
-    m_position = m_sourceCode.indexOf('@');
+    m_position = m_sourceCode.indexOf("<<<<");
     QVERIFY(m_position != -1);
     m_sourceCode[m_position] = ' ';
+    m_sourceCode[m_position + 1] = ' ';
+    m_sourceCode[m_position + 2] = ' ';
+    m_sourceCode[m_position + 3] = ' ';
 
     // substring from 0 to '@' position
     QByteArray substr(m_sourceCode.data(), m_position);

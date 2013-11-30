@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -33,8 +33,9 @@
 #include "clangprojectsettings.h"
 #include "pchinfo.h"
 
-#include <cpptools/ModelManagerInterface.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 #include <projectexplorer/project.h>
+#include <coreplugin/messagemanager.h>
 
 #include <QFutureWatcher>
 #include <QHash>
@@ -48,7 +49,7 @@ class PCHManager: public QObject
 {
     Q_OBJECT
 
-    typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
+    typedef CppTools::ProjectPart ProjectPart;
 
     static PCHManager *m_instance;
 
@@ -63,7 +64,7 @@ public:
 
 signals:
     void pchInfoUpdated(); // TODO: check if this is used
-    void pchMessage(const QString &message, bool isImportant);
+    void pchMessage(const QString &message, Core::MessageManager::PrintToOutputPaneFlags flags);
 
 public slots:
     void clangProjectSettingsChanged();

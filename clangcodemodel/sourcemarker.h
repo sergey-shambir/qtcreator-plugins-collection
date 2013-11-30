@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -37,7 +37,7 @@ namespace ClangCodeModel {
 
 class CLANG_EXPORT SourceMarker
 {
-public:
+public: // TODO: remove this, it's about the same as the TextEditor::SemanticHighlighter::Result
     enum Kind {
         Unknown = 0,
         Type = 1,
@@ -49,6 +49,7 @@ public:
         Macro,
         Function,
         PseudoKeyword,
+        ObjCString,
 
         ObjectiveCMessage = VirtualMethod
     };

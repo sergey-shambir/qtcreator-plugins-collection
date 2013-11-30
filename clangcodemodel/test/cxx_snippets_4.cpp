@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -27,52 +27,34 @@
 **
 ****************************************************************************/
 
-#ifndef SIMPLELEXER_H
-#define SIMPLELEXER_H
+// Expected:
+//   (clamp, ),
+//   (perform, perform<$class T$>)
+//   (perform3, perform3<$class T$, $int E$, $class D$>)
 
-#include "clang_global.h"
-#include "keywords.h"
-#include "token.h"
+// note: clang understands if parameter is redundant
 
-#include <clang-c/Index.h>
-#include <clang/Basic/LangOptions.h>
-
-#include <QtCore/QString>
-#include <QtCore/QList>
-
-namespace ClangCodeModel {
-
-class CLANG_EXPORT RawLexer
+template<class T>
+T clamp(T value, T a = 0.0, T b = 1.0)
 {
-public:
-    RawLexer();
+    if (value < a)
+        return a;
+    if (value > b)
+        return b;
+    return value;
+}
 
-    void includeQt();
-    void includeTrigraphs();
-    void includeDigraphs();
-    void includeC99();
-    void includeCpp0x();
-    void includeCppOperators();
+template<class T>
+void perform()
+{
+}
 
-    void init();
+template<class T, int E, class D>
+void perform3()
+{
+}
 
-    QList<Token> lex(const QString &code, int *state = 0);
-
-private:
-    enum State {
-        Normal,
-        InComment,
-        InDoxygenComment,
-        InString
-    };
-
-    static void checkDoxygenComment(const QString &lexedCode, Token *token);
-
-    State m_state;
-    Keywords m_keywords;
-    clang::LangOptions m_langOptions;
-};
-
-} // Clang
-
-#endif // SIMPLELEXER_H
+void check()
+{
+    <<<<
+}

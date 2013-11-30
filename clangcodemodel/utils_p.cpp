@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -104,7 +104,7 @@ QStringList formattedDiagnostics(const Unit &unit)
 
     const unsigned count = unit.getNumDiagnostics();
     for (unsigned i = 0; i < count; ++i) {
-        ScopedCXDiagnostic diag(unit.getDiagnostic(i));
+        CXDiagnostic diag = unit.getDiagnostic(i);
 
         unsigned opt = CXDiagnostic_DisplaySourceLocation
                 | CXDiagnostic_DisplayColumn
@@ -114,6 +114,7 @@ QStringList formattedDiagnostics(const Unit &unit)
                 | CXDiagnostic_DisplayCategoryName
                 ;
         diags << getQString(clang_formatDiagnostic(diag, opt));
+        clang_disposeDiagnostic(diag);
     }
 
     return diags;

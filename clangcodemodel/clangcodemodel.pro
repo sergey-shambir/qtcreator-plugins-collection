@@ -1,21 +1,13 @@
-TEMPLATE = lib
-TARGET = ClangCodeModel
-
-include(../build_settings.pri)
-include($$QTCREATOR_SOURCES/src/plugins/coreplugin/coreplugin.pri)
-include($$QTCREATOR_SOURCES/src/libs/utils/utils.pri)
-include($$QTCREATOR_SOURCES/src/plugins/cpptools/cpptools.pri)
-include($$QTCREATOR_SOURCES/src/plugins/texteditor/texteditor.pri)
+include(../../qtcreatorplugin.pri)
 include(clang_installation.pri)
 
 message("Building with Clang from $$LLVM_INSTALL_DIR")
 
 LIBS += $$LLVM_LIBS
 INCLUDEPATH += $$LLVM_INCLUDEPATH
-DEFINES += $$LLVM_DEFINES
-DEFINES += CLANG_LIBRARY
+DEFINES += CLANGCODEMODEL_LIBRARY
 
-macx: QMAKE_LFLAGS += -Wl,-rpath,\'$$LLVM_LIBDIR\'
+unix:QMAKE_LFLAGS += -Wl,-rpath,\'$$LLVM_LIBDIR\'
 
 contains(DEFINES, CLANG_COMPLETION) {
     HEADERS += clangcompletion.h clangcompleter.h completionproposalsbuilder.h
@@ -36,7 +28,6 @@ SOURCES += clangutils.cpp \
 SOURCES += \
     $$PWD/clangcodemodelplugin.cpp \
     $$PWD/sourcemarker.cpp \
-    $$PWD/token.cpp \
     $$PWD/symbol.cpp \
     $$PWD/sourcelocation.cpp \
     $$PWD/unit.cpp \
@@ -51,13 +42,13 @@ SOURCES += \
     $$PWD/pchmanager.cpp \
     $$PWD/clangprojectsettings.cpp \
     $$PWD/clangprojectsettingspropertiespage.cpp \
-    $$PWD/raii/scopedclangoptions.cpp
+    $$PWD/raii/scopedclangoptions.cpp \
+    $$PWD/clangmodelmanagersupport.cpp
 
 HEADERS += \
     $$PWD/clangcodemodelplugin.h \
     $$PWD/clang_global.h \
     $$PWD/sourcemarker.h \
-    $$PWD/token.h \
     $$PWD/constants.h \
     $$PWD/symbol.h \
     $$PWD/cxraii.h \
@@ -74,39 +65,23 @@ HEADERS += \
     $$PWD/pchmanager.h \
     $$PWD/clangprojectsettings.h \
     $$PWD/clangprojectsettingspropertiespage.h \
-    $$PWD/raii/scopedclangoptions.h
+    $$PWD/raii/scopedclangoptions.h \
+    $$PWD/clangmodelmanagersupport.h
 
 contains(DEFINES, CLANG_INDEXING) {
     HEADERS += \
         $$PWD/clangindexer.h \
-        $$PWD/indexer.h \
+        $$PWD/clangsymbolsearcher.h \
         $$PWD/index.h \
-        $$PWD/clangsymbolsearcher.h
+        $$PWD/indexer.h
 #        $$PWD/dependencygraph.h \
 
     SOURCES += \
         $$PWD/clangindexer.cpp \
-        $$PWD/indexer.cpp \
+        $$PWD/clangsymbolsearcher.cpp \
         $$PWD/index.cpp \
-        $$PWD/clangsymbolsearcher.cpp
+        $$PWD/indexer.cpp
 #        $$PWD/dependencygraph.cpp \
-
-#    DEFINES+=CLANG_LEXER
-}
-
-contains(DEFINES, CLANG_LEXER) {
-    HEADERS += \
-        $$PWD/rawlexer.h \
-        $$PWD/keywords.h \
-        $$PWD/includetracker.h \
-        $$PWD/codenavigator.h \
-        $$PWD/unitsetup.h
-    SOURCES += \
-        $$PWD/rawlexer.cpp \
-        $$PWD/keywords.cpp \
-        $$PWD/includetracker.cpp \
-        $$PWD/codenavigator.cpp \
-        $$PWD/unitsetup.cpp
 }
 
 equals(TEST, 1) {
@@ -131,10 +106,19 @@ equals(TEST, 1) {
         $$PWD/test/cxx_regression_8.cpp \
         $$PWD/test/cxx_regression_9.cpp \
         $$PWD/test/cxx_snippets_1.cpp \
-        $$PWD/test/cxx_snippets_2.cpp
+        $$PWD/test/cxx_snippets_2.cpp \
+        $$PWD/test/cxx_snippets_3.cpp \
+        test/cxx_snippets_4.cpp \
+        test/objc_messages_1.mm \
+        test/objc_messages_2.mm \
+        test/objc_messages_3.mm
 }
 
 FORMS += $$PWD/clangprojectsettingspropertiespage.ui
 
-OTHER_FILES += \
-    $$PWD/ClangCodeModelPlugin.json
+macx {
+    LIBCLANG_VERSION=3.3
+    POSTL = install_name_tool -change "@executable_path/../lib/libclang.$${LIBCLANG_VERSION}.dylib" "$$LLVM_INSTALL_DIR/lib/libclang.$${LIBCLANG_VERSION}.dylib" "\"$${DESTDIR}/lib$${TARGET}.dylib\"" $$escape_expand(\\n\\t)
+    !isEmpty(QMAKE_POST_LINK):QMAKE_POST_LINK = $$escape_expand(\\n\\t)$$QMAKE_POST_LINK
+    QMAKE_POST_LINK = $$POSTL $$QMAKE_POST_LINK
+}

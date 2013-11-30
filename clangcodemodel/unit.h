@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -149,6 +149,8 @@ public:
     CXTranslationUnit clangTranslationUnit() const;
     CXIndex clangIndex() const;
 
+    QString getTokenSpelling(const CXToken &tok) const;
+
 private:
     QExplicitlySharedDataPointer<UnitData> m_data;
 };
@@ -162,7 +164,10 @@ public:
     ~IdentifierTokens();
 
     unsigned count() const
-    { return m_identifierTokens.count(); }
+    { return m_tokenCount; }
+
+    const CXToken &token(unsigned nr) const
+    { Q_ASSERT(nr < count()); return m_tokens[nr]; }
 
     const CXCursor &cursor(unsigned nr) const
     { Q_ASSERT(nr < count()); return m_cursors[nr]; }
@@ -178,7 +183,6 @@ private:
     unsigned m_tokenCount;
     CXToken *m_tokens;
 
-    QVarLengthArray<CXToken> m_identifierTokens;
     CXCursor *m_cursors;
     CXSourceRange *m_extents;
 };

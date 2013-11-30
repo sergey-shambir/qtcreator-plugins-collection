@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -27,44 +27,16 @@
 **
 ****************************************************************************/
 
-#ifndef CODENAVIGATOR_H
-#define CODENAVIGATOR_H
-
-#include "clang_global.h"
-#include "sourcelocation.h"
-
-#include <clang-c/Index.h>
-
-#include <QtCore/QScopedPointer>
-
-namespace ClangCodeModel {
-
-class Indexer;
-
-namespace Internal {
-class UnitSetup;
+@interface PopCornTracker {
+    int _quality;
+    int _eatenAmount;
+    int _remainedAmount;
 }
++ (int) eatenAmount;
+- (int) spectacleQuality;
++ (int) desiredAmountForDramaDose: (int)dose andPersonsCount: (int) count;
+@end
 
-class CLANG_EXPORT CodeNavigator
-{
-public:
-    CodeNavigator();
-    ~CodeNavigator();
-
-    void setup(const QString &fileName, Indexer *indexer);
-
-    SourceLocation followItem(unsigned line, unsigned column) const;
-    SourceLocation switchDeclarationDefinition(unsigned line, unsigned column) const;
-
-private:
-    SourceLocation findDefinition(const CXCursor &cursor,
-                                  CXCursorKind cursorKind) const;
-    SourceLocation findInclude(const CXCursor &cursor) const;
-    CXCursor getCursor(unsigned line, unsigned column) const;
-
-    QScopedPointer<Internal::UnitSetup> m_setup;
-};
-
-} // ClangCodeModel
-
-#endif // CODENAVIGATOR_H
+@implementation PopCornTracker
++ <<<<
+@end

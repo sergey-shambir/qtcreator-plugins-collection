@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -40,55 +40,28 @@
 #include <QScopedPointer>
 
 namespace ClangCodeModel {
-namespace Internal {
-
-class DiagnosticsHandler: public QObject
-{
-    Q_OBJECT
-
-public:
-    DiagnosticsHandler(TextEditor::ITextEditor *textEditor);
-
-protected slots:
-    void setDiagnostics(const QList<ClangCodeModel::Diagnostic> &diagnostics);
-
-private:
-    TextEditor::ITextEditor *m_editor;
-};
-
-} // namespace Internal
 
 class ClangHighlightingSupport: public CppTools::CppHighlightingSupport
 {
 public:
-    ClangHighlightingSupport(TextEditor::ITextEditor *textEditor, Internal::FastIndexer *fastIndexer);
+    ClangHighlightingSupport(TextEditor::ITextEditor *textEditor,
+                             Internal::FastIndexer *fastIndexer);
     ~ClangHighlightingSupport();
 
-    virtual QFuture<Use> highlightingFuture(const CPlusPlus::Document::Ptr &doc,
-                                            const CPlusPlus::Snapshot &snapshot) const;
-
-private:
-    Internal::FastIndexer *m_fastIndexer;
-    ClangCodeModel::SemanticMarker::Ptr m_semanticMarker;
-    QScopedPointer<Internal::DiagnosticsHandler> m_diagnosticsHandler;
-};
-
-class ClangHighlightingSupportFactory: public CppTools::CppHighlightingSupportFactory
-{
-public:
-    ClangHighlightingSupportFactory(Internal::FastIndexer *fastIndexer)
-        : m_fastIndexer(fastIndexer)
-    {}
-
-    virtual ~ClangHighlightingSupportFactory();
-
-    virtual CppTools::CppHighlightingSupport *highlightingSupport(TextEditor::ITextEditor *editor);
+    virtual bool requiresSemanticInfo() const
+    { return false; }
 
     virtual bool hightlighterHandlesDiagnostics() const
     { return true; }
 
+    virtual bool hightlighterHandlesIfdefedOutBlocks() const;
+
+    virtual QFuture<TextEditor::HighlightingResult> highlightingFuture(
+            const CPlusPlus::Document::Ptr &doc, const CPlusPlus::Snapshot &snapshot) const;
+
 private:
     Internal::FastIndexer *m_fastIndexer;
+    ClangCodeModel::SemanticMarker::Ptr m_semanticMarker;
 };
 
 } // namespace ClangCodeModel

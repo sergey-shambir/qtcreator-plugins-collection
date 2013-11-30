@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -42,85 +42,10 @@ using namespace ClangCodeModel;
 using namespace ClangCodeModel::Internal;
 using namespace CppTools;
 
-DiagnosticsHandler::DiagnosticsHandler(TextEditor::ITextEditor *textEditor)
-    : m_editor(textEditor)
-{
-}
-
-void DiagnosticsHandler::setDiagnostics(const QList<ClangCodeModel::Diagnostic> &diagnostics)
-{
-    TextEditor::BaseTextEditorWidget *ed = qobject_cast<TextEditor::BaseTextEditorWidget *>(m_editor->widget());
-    // set up the format for the errors
-    QTextCharFormat errorFormat;
-    errorFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
-    errorFormat.setUnderlineColor(Qt::red);
-
-    // set up the format for the warnings.
-    QTextCharFormat warningFormat;
-    warningFormat.setUnderlineStyle(QTextCharFormat::WaveUnderline);
-    warningFormat.setUnderlineColor(Qt::darkYellow);
-
-    QList<QTextEdit::ExtraSelection> selections;
-    foreach (const ClangCodeModel::Diagnostic &m, diagnostics) {
-        QTextEdit::ExtraSelection sel;
-
-        switch (m.severity()) {
-        case ClangCodeModel::Diagnostic::Error:
-        case ClangCodeModel::Diagnostic::Fatal:
-            sel.format = errorFormat;
-            break;
-
-        case ClangCodeModel::Diagnostic::Warning:
-            sel.format = warningFormat;
-            break;
-
-        default:
-            continue;
-        }
-
-        QTextCursor c(ed->document()->findBlockByNumber(m.location().line() - 1));
-        const int linePos = c.position();
-        c.setPosition(linePos + m.location().column() - 1);
-
-        const QString text = c.block().text();
-        if (m.length() == 0) {
-            int i = m.location().column() - 1;
-            if (i == text.size() || (i < text.size() && text.at(i).isSpace())) {
-                // move backward to 1 character
-                c.setPosition(linePos + i - 1, QTextCursor::KeepAnchor);
-            } else {
-                // forward scan
-                for ( ; i < text.size(); ++i)
-                    if (text.at(i).isSpace()) {
-                        ++i;
-                        break;
-                    }
-                c.setPosition(linePos + i, QTextCursor::KeepAnchor);
-            }
-        } else {
-            c.setPosition(c.position() + m.length(), QTextCursor::KeepAnchor);
-            /// SERGEY: temporary hack for too big ranges
-            if (static_cast<unsigned>(c.blockNumber()) > m.location().line()) {
-                // range takes more than 2 lines
-                int savedPos = c.position();
-                c = QTextCursor(c.block());
-                c.setPosition(savedPos, QTextCursor::KeepAnchor);
-            }
-        }
-
-        sel.cursor = c;
-        sel.format.setToolTip(m.spelling());
-        selections.append(sel);
-    }
-
-    ed->setExtraSelections(TextEditor::BaseTextEditorWidget::CodeWarningsSelection, selections);
-}
-
 ClangHighlightingSupport::ClangHighlightingSupport(TextEditor::ITextEditor *textEditor, FastIndexer *fastIndexer)
     : CppHighlightingSupport(textEditor)
     , m_fastIndexer(fastIndexer)
     , m_semanticMarker(new ClangCodeModel::SemanticMarker)
-    , m_diagnosticsHandler(new DiagnosticsHandler(textEditor))
 {
 }
 
@@ -128,7 +53,16 @@ ClangHighlightingSupport::~ClangHighlightingSupport()
 {
 }
 
-QFuture<CppHighlightingSupport::Use> ClangHighlightingSupport::highlightingFuture(
+bool ClangHighlightingSupport::hightlighterHandlesIfdefedOutBlocks() const
+{
+#if CINDEX_VERSION_MINOR < 21
+    return false;
+#else
+    return true;
+#endif
+}
+
+QFuture<TextEditor::HighlightingResult> ClangHighlightingSupport::highlightingFuture(
         const CPlusPlus::Document::Ptr &doc,
         const CPlusPlus::Snapshot &snapshot) const
 {
@@ -139,32 +73,27 @@ QFuture<CppHighlightingSupport::Use> ClangHighlightingSupport::highlightingFutur
     int firstLine = 1;
     int lastLine = ed->document()->blockCount();
 
-    const QString fileName = editor()->document()->fileName();
-    CPlusPlus::CppModelManagerInterface *modelManager = CPlusPlus::CppModelManagerInterface::instance();
-    QList<CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
+    const QString fileName = editor()->document()->filePath();
+    CppModelManagerInterface *modelManager = CppModelManagerInterface::instance();
+    QList<ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
+    if (parts.isEmpty())
+        parts += modelManager->fallbackProjectPart();
     QStringList options;
-    foreach (const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &part, parts) {
+    PCHInfo::Ptr pchInfo;
+    foreach (const ProjectPart::Ptr &part, parts) {
+        if (part.isNull())
+            continue;
         options = Utils::createClangOptions(part, fileName);
-        if (PCHInfo::Ptr pchInfo = PCHManager::instance()->pchInfo(part))
+        pchInfo = PCHManager::instance()->pchInfo(part);
+        if (!pchInfo.isNull())
             options.append(ClangCodeModel::Utils::createPCHInclusionOptions(pchInfo->fileName()));
         if (!options.isEmpty())
             break;
     }
-    if (options.isEmpty())
-        options = Utils::clangNonProjectFileOptions();
 
-    //### FIXME: the range is way too big.. can't we just update the visible lines?
-    CreateMarkers *createMarkers = CreateMarkers::create(m_semanticMarker, fileName, options, firstLine, lastLine, m_fastIndexer);
-    QObject::connect(createMarkers, SIGNAL(diagnosticsReady(const QList<ClangCodeModel::Diagnostic> &)),
-                     m_diagnosticsHandler.data(), SLOT(setDiagnostics(const QList<ClangCodeModel::Diagnostic> &)));
+    CreateMarkers *createMarkers = CreateMarkers::create(m_semanticMarker,
+                                                         fileName, options,
+                                                         firstLine, lastLine,
+                                                         m_fastIndexer, pchInfo);
     return createMarkers->start();
-}
-
-ClangHighlightingSupportFactory::~ClangHighlightingSupportFactory()
-{
-}
-
-CppHighlightingSupport *ClangHighlightingSupportFactory::highlightingSupport(TextEditor::ITextEditor *editor)
-{
-    return new ClangHighlightingSupport(editor, m_fastIndexer);
 }

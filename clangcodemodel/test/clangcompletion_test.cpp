@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -92,6 +92,7 @@ void ClangCodeModelPlugin::test_CXX_regressions_data()
 
     file = QLatin1String("cxx_regression_1.cpp");
     mustHave << QLatin1String("sqr");
+    mustHave << QLatin1String("~Math");
     unexpected << QLatin1String("operator=");
     QTest::newRow("case 1: method call completion") << file << unexpected << mustHave;
     mustHave.clear();
@@ -110,6 +111,7 @@ void ClangCodeModelPlugin::test_CXX_regressions_data()
     file = QLatin1String("cxx_regression_3.cpp");
     mustHave << QLatin1String("i8");
     mustHave << QLatin1String("i64");
+    mustHave << QLatin1String("~Priv");
     unexpected << QLatin1String("operator=");
     QTest::newRow("case 3: nested class resolution") << file << unexpected << mustHave;
     mustHave.clear();
@@ -238,6 +240,153 @@ void ClangCodeModelPlugin::test_CXX_snippets_data()
     QTest::newRow("case: snippets inside class declaration") << file << texts << snippets;
     texts.clear();
     snippets.clear();
+
+    file = QLatin1String("cxx_snippets_3.cpp");
+    texts << QLatin1String("List");
+    snippets << QLatin1String("List<$class Item$>");
+
+    texts << QLatin1String("Tuple");
+    snippets << QLatin1String("Tuple<$class First$, $class Second$, $typename Third$>");
+
+    QTest::newRow("case: template class insertion as snippet") << file << texts << snippets;
+    texts.clear();
+    snippets.clear();
+
+    file = QLatin1String("cxx_snippets_4.cpp");
+    texts << QLatin1String("clamp");
+    snippets << QLatin1String("");
+
+    texts << QLatin1String("perform");
+    snippets << QLatin1String("perform<$class T$>");
+
+    QTest::newRow("case: template function insertion as snippet") << file << texts << snippets;
+    texts.clear();
+    snippets.clear();
+}
+
+void ClangCodeModelPlugin::test_ObjC_hints()
+{
+    QFETCH(QString, file);
+    QFETCH(QStringList, texts);
+    QFETCH(QStringList, snippets);
+    QFETCH(QStringList, hints);
+    Q_ASSERT(texts.size() == snippets.size());
+    Q_ASSERT(texts.size() == hints.size());
+
+    CompletionTestHelper helper;
+    helper << file;
+
+    QList<CodeCompletionResult> proposals = helper.codeComplete();
+
+    for (int i = 0, n = texts.size(); i < n; ++i) {
+        const QString &text = texts[i];
+        const QString &snippet = snippets[i];
+        const QString &hint = hints[i];
+        const QString snippetError =
+                QLatin1String("Text and snippet mismatch: text '") + text
+                + QLatin1String("', snippet '") + snippet
+                + QLatin1String("', got snippet '%1'");
+        const QString hintError =
+                QLatin1String("Text and hint mismatch: text '") + text
+                + QLatin1String("', hint\n'") + hint
+                + QLatin1String(", got hint\n'%1'");
+
+        bool hasText = false;
+        QStringList texts;
+        foreach (const CodeCompletionResult &ccr, proposals) {
+            texts << ccr.text();
+            if (ccr.text() != text)
+                continue;
+            hasText = true;
+            QVERIFY2(snippet == ccr.snippet(), snippetError.arg(ccr.snippet()).toAscii());
+            QVERIFY2(hint == ccr.hint(), hintError.arg(ccr.hint()).toAscii());
+        }
+        const QString textError(QString::fromLatin1("Text '%1' not found in set %2")
+                                .arg(text).arg(texts.join(QLatin1Char(','))));
+        QVERIFY2(hasText, textError.toAscii());
+    }
+}
+
+static QString makeObjCHint(const char *cHintPattern)
+{
+    QString hintPattern(QString::fromUtf8(cHintPattern));
+    QStringList lines = hintPattern.split(QLatin1Char('\n'));
+    QString hint = QLatin1String("<p>");
+    bool prependNewline = false;
+    foreach (const QString &line, lines) {
+        if (prependNewline)
+            hint += QLatin1String("<br/>");
+        prependNewline = true;
+        int i = 0;
+        while (i < line.size() && line[i] == QLatin1Char(' ')) {
+            ++i;
+            hint += QLatin1String("&nbsp;");
+        }
+        hint += line.mid(i);
+    }
+    hint += QLatin1String("</p>");
+    return hint;
+}
+
+void ClangCodeModelPlugin::test_ObjC_hints_data()
+{
+    QTest::addColumn<QString>("file");
+    QTest::addColumn<QStringList>("texts");
+    QTest::addColumn<QStringList>("snippets");
+    QTest::addColumn<QStringList>("hints");
+
+    QString file;
+    QStringList texts;
+    QStringList snippets;
+    QStringList hints;
+
+    file = QLatin1String("objc_messages_1.mm");
+    texts << QLatin1String("spectacleQuality:");
+    snippets << QLatin1String("spectacleQuality:$(bool)$");
+    hints << makeObjCHint("-(int) spectacleQuality:<b>(bool)</b>");
+    texts << QLatin1String("desiredAmountForDramaDose:andPersonsCount:");
+    snippets << QLatin1String("desiredAmountForDramaDose:$(int)$ andPersonsCount:$(int)$");
+    hints << makeObjCHint("-(int) desiredAmountForDramaDose:<b>(int)</b> \n"
+                          "                 andPersonsCount:<b>(int)</b>");
+
+    QTest::newRow("case: objective-c instance messages call") << file << texts << snippets << hints;
+    texts.clear();
+    snippets.clear();
+    hints.clear();
+
+    file = QLatin1String("objc_messages_2.mm");
+    texts << QLatin1String("eatenAmount");
+    snippets << QLatin1String("(int) eatenAmount");
+    hints << makeObjCHint("+(int) eatenAmount");
+    texts << QLatin1String("desiredAmountForDramaDose:andPersonsCount:");
+    snippets << QLatin1String("(int) desiredAmountForDramaDose:(int)dose andPersonsCount:(int)count");
+    hints << makeObjCHint("+(int) desiredAmountForDramaDose:(int)dose \n"
+                          "                 andPersonsCount:(int)count");
+
+    QTest::newRow("case: objective-c class messages in @implementation") << file << texts << snippets << hints;
+    texts.clear();
+    snippets.clear();
+    hints.clear();
+
+    file = QLatin1String("objc_messages_3.mm");
+    texts << QLatin1String("eatenAmount");
+    snippets << QLatin1String("(int) eatenAmount");
+    hints << makeObjCHint("-(int) eatenAmount");
+    texts << QLatin1String("spectacleQuality");
+    snippets << QLatin1String("(int) spectacleQuality");
+    hints << makeObjCHint("-(int) spectacleQuality");
+    texts << QLatin1String("desiredAmountForDramaDose:andPersonsCount:");
+    snippets << QLatin1String("(int) desiredAmountForDramaDose:(int)dose andPersonsCount:(int)count");
+    hints << makeObjCHint("-(int) desiredAmountForDramaDose:(int)dose \n"
+                          "                 andPersonsCount:(int)count");
+    texts << QLatin1String("initWithOldTracker:");
+    snippets << QLatin1String("(id) initWithOldTracker:(Bbbb<Aaaa> *)aabb");
+    hints << makeObjCHint("-(id) initWithOldTracker:(Bbbb&lt;Aaaa&gt; *)aabb");
+
+    QTest::newRow("case: objective-c class messages from base class") << file << texts << snippets << hints;
+    texts.clear();
+    snippets.clear();
+    hints.clear();
 }
 
 #endif

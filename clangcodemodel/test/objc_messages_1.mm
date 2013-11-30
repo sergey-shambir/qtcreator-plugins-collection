@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -27,39 +27,31 @@
 **
 ****************************************************************************/
 
-#ifndef KEYWORDS_H
-#define KEYWORDS_H
-
-#include "clang_global.h"
-
-#include <clang-c/Index.h>
-
-#include <QtCore/QScopedPointer>
-
-namespace clang {
-class IdentifierTable;
-class LangOptions;
-}
-
-namespace ClangCodeModel {
-
 /*
- * When lexing in raw mode the identifier table is not looked up. This works as a replacement
- * for keywords in this case and for any other in which there's no parsing context.
+ * Expected texts:
+ *      eatenAmount
+ *      spectacleQuality:
+ *      desiredAmountForDramaDose:andPersonsCount:
+ *
+ * Expected hints:
+ *      -(int) eatenAmount
+ *
+ *      -(int) spectacleQuality:(bool)unused
  */
-class CLANG_EXPORT Keywords
+
+@interface PopCornTracker {
+    int _quality;
+    int _eatenAmount;
+    int _remainedAmount;
+}
++ (int) eatenAmount;
+- (int) spectacleQuality : (bool)unused;
+- (int) desiredAmountForDramaDose: (int)dose andPersonsCount: (int) count;
+@end
+
+@implementation PopCornTracker
+- (int) desiredAmountForDramaDose: (int)dose andPersonsCount: (int) count
 {
-public:
-    Keywords();
-    ~Keywords();
-
-    void load(const clang::LangOptions &options);
-    bool contains(const char *buffer, size_t length) const;
-
-private:
-    QScopedPointer<clang::IdentifierTable> m_table;
-};
-
-} // Clang
-
-#endif // KEYWORDS_H
+    [self <<<<];
+}
+@end

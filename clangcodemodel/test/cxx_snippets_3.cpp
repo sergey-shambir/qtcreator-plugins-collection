@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -27,49 +27,26 @@
 **
 ****************************************************************************/
 
-#ifndef UNITSETUP_H
-#define UNITSETUP_H
+// Expected:
+//   (List, List<$class Item$>),
+//   (Tuple, Tuple<$class First$, $class Second$, $typename Third$>)
 
-#include "clang_global.h"
-#include "unit.h"
-
-#include <QtCore/QObject>
-
-namespace ClangCodeModel {
-
-class Indexer;
-
-namespace Internal {
-
-/*
- * This is an utility for better control of a Unit's lifecycle. It can be
- * used by any component which needs to track the latest "live" Unit available
- * for the corresponding file name.
- */
-class UnitSetup : public QObject
+template <class Item>
+class List
 {
-    Q_OBJECT
-public:
-    UnitSetup();
-    UnitSetup(const QString &fileName, Indexer *indexer);
-    ~UnitSetup();
-
-    const QString &fileName() const { return m_fileName; }
-    Unit unit() const { return m_unit; }
-    Indexer *indexer() const { return m_indexer; }
-
-    void checkForNewerUnit();
-
-private slots:
-    void assignUnit(const Unit &unit);
-
-private:
-    QString m_fileName;
-    mutable Unit m_unit;
-    Indexer *m_indexer;
+    Item *data;
 };
 
-} // Internal
-} // ClangCodeModel
+template <class First, class Second, typename Third>
+class Tuple
+{
+    First *data;
+    Second *data2;
+    Third *data3;
+};
 
-#endif // UNITSETUP_H
+void check()
+{
+    <<<<
+}
+

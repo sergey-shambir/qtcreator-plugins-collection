@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -169,6 +169,33 @@ QList<Diagnostic> SemanticMarker::diagnostics() const
     return diagnostics;
 }
 
+QList<TextEditor::BlockRange> SemanticMarker::ifdefedOutBlocks() const
+{
+    QList<TextEditor::BlockRange> blocks;
+
+    if (!m_unit || !m_unit->isLoaded())
+        return blocks;
+
+#if CINDEX_VERSION_MINOR >= 21
+    CXSkippedRanges *skippedRanges = clang_getSkippedRanges(m_unit->clangTranslationUnit(),
+                                                            m_unit->getFile());
+    blocks.reserve(skippedRanges->count);
+    for (unsigned i = 0; i < skippedRanges->count; ++i) {
+        const CXSourceRange &r = skippedRanges->ranges[i];
+        const SourceLocation &spellBegin = Internal::getSpellingLocation(clang_getRangeStart(r));
+        if (spellBegin.fileName() != fileName())
+            continue;
+        const SourceLocation &spellEnd = Internal::getSpellingLocation(clang_getRangeEnd(r));
+        const int begin = spellBegin.offset() + 1;
+        const int end = spellEnd.offset() - spellEnd.column();
+        blocks.append(TextEditor::BlockRange(begin, end));
+    }
+    clang_disposeSkippedRanges(skippedRanges);
+#endif
+
+    return blocks;
+}
+
 namespace {
 static void add(QList<SourceMarker> &markers,
                 const CXSourceRange &extent,
@@ -234,6 +261,33 @@ static SourceMarker::Kind getKindByReferencedCursor(const CXCursor &cursor)
     return SourceMarker::Unknown;
 }
 
+static const QSet<QString> ObjcPseudoKeywords = QSet<QString>()
+        << QLatin1String("end")
+        << QLatin1String("try")
+        << QLatin1String("defs")
+        << QLatin1String("throw")
+        << QLatin1String("class")
+        << QLatin1String("catch")
+        << QLatin1String("encode")
+        << QLatin1String("public")
+        << QLatin1String("dynamic")
+        << QLatin1String("finally")
+        << QLatin1String("package")
+        << QLatin1String("private")
+        << QLatin1String("optional")
+        << QLatin1String("property")
+        << QLatin1String("protocol")
+        << QLatin1String("required")
+        << QLatin1String("selector")
+        << QLatin1String("interface")
+        << QLatin1String("protected")
+        << QLatin1String("synthesize")
+        << QLatin1String("not_keyword")
+        << QLatin1String("synchronized")
+        << QLatin1String("implementation")
+        << QLatin1String("compatibility_alias")
+           ;
+
 } // Anonymous namespace
 
 /**
@@ -257,13 +311,13 @@ static SourceMarker::Kind getKindByReferencedCursor(const CXCursor &cursor)
  *
  * Missed cases:
  *    - global variables highlighted as locals
- *    - ObjectiveC 'super' highlighted as ObjCMessage instead of PseudoKeyword
  *    - appropriate marker had not been selected for listed cursors:
  *          CXCursor_ObjCProtocolExpr, CXCursor_ObjCEncodeExpr,
  *          CXCursor_ObjCDynamicDecl, CXCursor_ObjCBridgedCastExpr,
  *          CXCursor_ObjCSuperClassRef
  *    - template members of template classes&functions always highlighted
  *      as members, even if they are functions - no way to differ found.
+ *    - @1, @{}, @[]
  */
 QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
                                                          unsigned lastLine)
@@ -277,13 +331,45 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
 
     IdentifierTokens idTokens(*m_unit, firstLine, lastLine);
 
+    const CXSourceRange *atTokenExtent = 0;
     for (unsigned i = 0; i < idTokens.count(); ++i) {
+        const CXToken &tok = idTokens.token(i);
+        CXTokenKind kind = clang_getTokenKind(tok);
+        if (atTokenExtent) {
+            if (CXToken_Literal == kind) {
+                if (m_unit->getTokenSpelling(tok).startsWith(QLatin1Char('"')))
+                    add(result, *atTokenExtent, SourceMarker::ObjCString);
+                atTokenExtent = 0;
+                continue;
+            } else {
+                add(result, *atTokenExtent, SourceMarker::PseudoKeyword);
+                atTokenExtent = 0;
+            }
+        }
+
+        const CXSourceRange &tokenExtent = idTokens.extent(i);
+
+        if (CXToken_Keyword == kind) {
+            QString spell = m_unit->getTokenSpelling(tok);
+            if (ObjcPseudoKeywords.contains(spell))
+                add(result, tokenExtent, SourceMarker::PseudoKeyword);
+            continue;
+        }
+
+        if (CXToken_Punctuation == kind) {
+            static const QLatin1String at("@");
+            if (m_unit->getTokenSpelling(tok) == at)
+                atTokenExtent = &tokenExtent;
+            continue;
+        }
+
+        if (CXToken_Identifier != kind)
+            continue;
+
         const CXCursor &cursor = idTokens.cursor(i);
         const CXCursorKind cursorKind = clang_getCursorKind(cursor);
         if (clang_isInvalid(cursorKind))
             continue;
-
-        const CXSourceRange &tokenExtent = idTokens.extent(i);
 
         switch (cursorKind) {
         case CXCursor_EnumConstantDecl:
@@ -357,9 +443,16 @@ QList<SourceMarker> SemanticMarker::sourceMarkersInRange(unsigned firstLine,
         case CXCursor_ObjCInstanceMethodDecl:
         case CXCursor_ObjCClassMethodDecl:
         case CXCursor_ObjCSelectorExpr:
-        case CXCursor_ObjCMessageExpr:
             add(result, tokenExtent, SourceMarker::ObjectiveCMessage);
             break;
+
+        case CXCursor_ObjCMessageExpr: {
+            static const QLatin1String super("super");
+            if (m_unit->getTokenSpelling(tok) == super)
+                add(result, tokenExtent, SourceMarker::PseudoKeyword);
+            else
+                add(result, tokenExtent, SourceMarker::ObjectiveCMessage);
+        } break;
 
         case CXCursor_ObjCCategoryDecl:
         case CXCursor_ObjCCategoryImplDecl:

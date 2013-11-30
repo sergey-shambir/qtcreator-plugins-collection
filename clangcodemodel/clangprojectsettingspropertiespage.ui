@@ -30,7 +30,7 @@
      <item row="1" column="1">
       <widget class="QRadioButton" name="exactButton">
        <property name="text">
-        <string>Build system (Exact)</string>
+        <string>Build system (exact)</string>
        </property>
       </widget>
      </item>

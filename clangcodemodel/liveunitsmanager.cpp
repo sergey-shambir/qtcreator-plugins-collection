@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -82,10 +82,10 @@ Unit LiveUnitsManager::unit(const QString &fileName)
 
 void LiveUnitsManager::editorOpened(Core::IEditor *editor)
 {
-    requestTracking(editor->document()->fileName());
+    requestTracking(editor->document()->filePath());
 }
 
 void LiveUnitsManager::editorAboutToClose(Core::IEditor *editor)
 {
-    cancelTrackingRequest(editor->document()->fileName());
+    cancelTrackingRequest(editor->document()->filePath());
 }

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -52,8 +52,15 @@ class ClangAssistProposalModel;
 class ClangCompletionAssistProvider : public CppTools::CppCompletionAssistProvider
 {
 public:
+    ClangCompletionAssistProvider();
+
     virtual TextEditor::IAssistProcessor *createProcessor() const;
-    virtual CppTools::CppCompletionSupport *completionSupport(TextEditor::ITextEditor *editor);
+    virtual TextEditor::IAssistInterface *createAssistInterface(
+            ProjectExplorer::Project *project, TextEditor::BaseTextEditor *editor,
+            QTextDocument *document, int position, TextEditor::AssistReason reason) const;
+
+private:
+    ClangCodeModel::ClangCompleter::Ptr m_clangCompletionWrapper;
 };
 
 } // namespace Internal
@@ -64,11 +71,12 @@ public:
     ClangCompletionAssistInterface(ClangCodeModel::ClangCompleter::Ptr clangWrapper,
                                    QTextDocument *document,
                                    int position,
-                                   Core::IDocument *doc,
+                                   const QString &fileName,
                                    TextEditor::AssistReason reason,
                                    const QStringList &options,
                                    const QStringList &includePaths,
-                                   const QStringList &frameworkPaths);
+                                   const QStringList &frameworkPaths,
+                                   const Internal::PCHInfo::Ptr &pchInfo);
 
     ClangCodeModel::ClangCompleter::Ptr clangWrapper() const
     { return m_clangWrapper; }
@@ -91,6 +99,7 @@ private:
     ClangCodeModel::ClangCompleter::Ptr m_clangWrapper;
     ClangCodeModel::Internal::UnsavedFiles m_unsavedFiles;
     QStringList m_options, m_includePaths, m_frameworkPaths;
+    Internal::PCHInfo::Ptr m_savedPchPointer;
 };
 
 class CLANG_EXPORT ClangCompletionAssistProcessor : public TextEditor::IAssistProcessor

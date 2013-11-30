@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -29,7 +29,7 @@
 
 #include "clangcompletion.h"
 #include "clangutils.h"
-#include <cpptools/ModelManagerInterface.h>
+#include "pchmanager.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/idocument.h>
@@ -43,6 +43,7 @@
 #include <cppeditor/cppeditorconstants.h>
 
 #include <cpptools/cppdoxygen.h>
+#include <cpptools/cppmodelmanagerinterface.h>
 
 #include <texteditor/basetexteditor.h>
 #include <texteditor/convenience.h>
@@ -54,16 +55,10 @@
 #include <texteditor/texteditorsettings.h>
 #include <texteditor/completionsettings.h>
 
-#include <projectexplorer/kit.h>
-#include <projectexplorer/kitmanager.h>
-#include <projectexplorer/kitinformation.h>
-#include <projectexplorer/toolchain.h>
-
 #include <QCoreApplication>
 #include <QDirIterator>
 #include <QTextCursor>
 #include <QTextDocument>
-#include "pchmanager.h"
 
 #undef DEBUG_TIMING
 
@@ -72,7 +67,6 @@ using namespace ClangCodeModel::Internal;
 using namespace CPlusPlus;
 using namespace CppTools;
 using namespace TextEditor;
-using namespace ProjectExplorer;
 
 static const char SNIPPET_ICON_PATH[] = ":/texteditor/images/snippet.png";
 
@@ -188,55 +182,6 @@ static QList<CodeCompletionResult> unfilteredCompletion(const ClangCompletionAss
     return result;
 }
 
-class ClangCompletionSupport: public CppTools::CppCompletionSupport
-{
-public:
-    ClangCompletionSupport(TextEditor::ITextEditor *editor)
-        : CppCompletionSupport(editor)
-        , m_clangCompletionWrapper(new ClangCodeModel::ClangCompleter)
-    {}
-
-    ~ClangCompletionSupport()
-    {}
-
-    virtual TextEditor::IAssistInterface *createAssistInterface(
-            ProjectExplorer::Project *project, QTextDocument *document,
-            int position, TextEditor::AssistReason reason) const {
-        Q_UNUSED(project);
-
-        QString fileName = editor()->document()->fileName();
-        CPlusPlus::CppModelManagerInterface *modelManager = CPlusPlus::CppModelManagerInterface::instance();
-        QList<CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
-        QStringList includePaths, frameworkPaths, options;
-        if (!parts.isEmpty()) {
-            const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr part = parts.at(0);
-            options = ClangCodeModel::Utils::createClangOptions(part, fileName);
-            if (PCHInfo::Ptr pchInfo = PCHManager::instance()->pchInfo(part))
-                options.append(ClangCodeModel::Utils::createPCHInclusionOptions(pchInfo->fileName()));
-            includePaths = part->includePaths;
-            frameworkPaths = part->frameworkPaths;
-        } else {
-            options = ClangCodeModel::Utils::clangNonProjectFileOptions();
-            if (Kit *kit = KitManager::instance()->defaultKit()) {
-                ToolChain *tc = ToolChainKitInformation::toolChain(kit);
-                foreach (const HeaderPath &header, tc->systemHeaderPaths(QStringList(), SysRootKitInformation::sysRoot(kit)))
-                    if (header.kind() == HeaderPath::FrameworkHeaderPath)
-                        frameworkPaths += header.path();
-                    else
-                        includePaths += header.path();
-            }
-        }
-
-        return new ClangCodeModel::ClangCompletionAssistInterface(
-                    m_clangCompletionWrapper,
-                    document, position, editor()->document(), reason,
-                    options, includePaths, frameworkPaths);
-    }
-
-private:
-    ClangCodeModel::ClangCompleter::Ptr m_clangCompletionWrapper;
-};
-
 } // Anonymous
 
 namespace ClangCodeModel {
@@ -245,14 +190,45 @@ namespace Internal {
 // -----------------------------
 // ClangCompletionAssistProvider
 // -----------------------------
+ClangCompletionAssistProvider::ClangCompletionAssistProvider()
+    : m_clangCompletionWrapper(new ClangCodeModel::ClangCompleter)
+{
+}
+
 IAssistProcessor *ClangCompletionAssistProvider::createProcessor() const
 {
     return new ClangCompletionAssistProcessor;
 }
 
-CppCompletionSupport *ClangCompletionAssistProvider::completionSupport(ITextEditor *editor)
+IAssistInterface *ClangCompletionAssistProvider::createAssistInterface(
+        ProjectExplorer::Project *project, TextEditor::BaseTextEditor *editor,
+        QTextDocument *document, int position, AssistReason reason) const
 {
-    return new ClangCompletionSupport(editor);
+    Q_UNUSED(project);
+
+    QString fileName = editor->document()->filePath();
+    CppModelManagerInterface *modelManager = CppModelManagerInterface::instance();
+    QList<ProjectPart::Ptr> parts = modelManager->projectPart(fileName);
+    if (parts.isEmpty())
+        parts += modelManager->fallbackProjectPart();
+    QStringList includePaths, frameworkPaths, options;
+    PCHInfo::Ptr pchInfo;
+    foreach (ProjectPart::Ptr part, parts) {
+        if (part.isNull())
+            continue;
+        options = ClangCodeModel::Utils::createClangOptions(part, fileName);
+        pchInfo = PCHManager::instance()->pchInfo(part);
+        if (!pchInfo.isNull())
+            options.append(ClangCodeModel::Utils::createPCHInclusionOptions(pchInfo->fileName()));
+        includePaths = part->includePaths;
+        frameworkPaths = part->frameworkPaths;
+        break;
+    }
+
+    return new ClangCodeModel::ClangCompletionAssistInterface(
+                m_clangCompletionWrapper,
+                document, position, fileName, reason,
+                options, includePaths, frameworkPaths, pchInfo);
 }
 
 // ------------------------
@@ -478,7 +454,7 @@ void ClangAssistProposalItem::applyContextualContent(TextEditor::BaseTextEditor 
 
             // If the function doesn't return anything, automatically place the semicolon,
             // unless we're doing a scope completion (then it might be function definition).
-            const QChar characterAtCursor = editor->characterAt(editor->position());
+            const QChar characterAtCursor = editor->textDocument()->characterAt(editor->position());
             bool endWithSemicolon = m_typedChar == QLatin1Char(';')/*
                                             || (function->returnType()->isVoidType() && m_completionOperator != T_COLON_COLON)*/; //###
             const QChar semicolon = m_typedChar.isNull() ? QLatin1Char(';') : m_typedChar;
@@ -496,7 +472,7 @@ void ClangAssistProposalItem::applyContextualContent(TextEditor::BaseTextEditor 
                     m_typedChar = QChar();
                 }
             } else if (autoParenthesesEnabled) {
-                const QChar lookAhead = editor->characterAt(editor->position() + 1);
+                const QChar lookAhead = editor->textDocument()->characterAt(editor->position() + 1);
                 if (MatchingText::shouldInsertMatchingText(lookAhead)) {
                     extraChars += QLatin1Char(')');
                     --cursorOffset;
@@ -532,7 +508,8 @@ void ClangAssistProposalItem::applyContextualContent(TextEditor::BaseTextEditor 
 
     // Avoid inserting characters that are already there
     const int endsPosition = editor->position(TextEditor::ITextEditor::EndOfLine);
-    const QString existingText = editor->textAt(editor->position(), endsPosition - editor->position());
+    const QString existingText = editor->textDocument()->textAt(editor->position(),
+                                                                endsPosition - editor->position());
     int existLength = 0;
     if (!existingText.isEmpty()) {
         // Calculate the exist length in front of the extra chars
@@ -544,7 +521,7 @@ void ClangAssistProposalItem::applyContextualContent(TextEditor::BaseTextEditor 
     }
     for (int i = 0; i < extraChars.length(); ++i) {
         const QChar a = extraChars.at(i);
-        const QChar b = editor->characterAt(editor->position() + i + existLength);
+        const QChar b = editor->textDocument()->characterAt(editor->position() + i + existLength);
         if (a == b)
             ++extraLength;
         else
@@ -568,16 +545,18 @@ bool ClangCompletionAssistInterface::objcEnabled() const
 ClangCompletionAssistInterface::ClangCompletionAssistInterface(ClangCompleter::Ptr clangWrapper,
         QTextDocument *document,
         int position,
-        Core::IDocument *doc,
+        const QString &fileName,
         AssistReason reason,
         const QStringList &options,
         const QStringList &includePaths,
-        const QStringList &frameworkPaths)
-    : DefaultAssistInterface(document, position, doc, reason)
+        const QStringList &frameworkPaths,
+        const PCHInfo::Ptr &pchInfo)
+    : DefaultAssistInterface(document, position, fileName, reason)
     , m_clangWrapper(clangWrapper)
     , m_options(options)
     , m_includePaths(includePaths)
     , m_frameworkPaths(frameworkPaths)
+    , m_savedPchPointer(pchInfo)
 {
     Q_ASSERT(!clangWrapper.isNull());
 
@@ -663,8 +642,7 @@ int ClangCompletionAssistProcessor::startCompletionHelper()
     while (m_interface->characterAt(endOfOperator - 1).isSpace())
         --endOfOperator;
 
-    const Core::IDocument *file = m_interface->document();
-    const QString fileName = file->fileName();
+    const QString fileName = m_interface->fileName();
 
     int endOfExpression = startOfOperator(endOfOperator,
                                           &m_model->m_completionOperator,
@@ -782,8 +760,10 @@ int ClangCompletionAssistProcessor::startOfOperator(int pos,
         }
 
         SimpleLexer tokenize;
-        tokenize.setQtMocRunEnabled(true);
-        tokenize.setObjCEnabled(true);
+        LanguageFeatures lf = tokenize.languageFeatures();
+        lf.qtMocRunEnabled = true;
+        lf.objCEnabled = true;
+        tokenize.setLanguageFeatures(lf);
         tokenize.setSkipComments(false);
         const QList<CPlusPlus::Token> &tokens = tokenize(tc.block().text(), BackwardsScanner::previousBlockState(tc.block()));
         const int tokenIdx = SimpleLexer::tokenBefore(tokens, qMax(0, tc.positionInBlock() - 1)); // get the token at the left of the cursor
@@ -891,8 +871,10 @@ bool ClangCompletionAssistProcessor::accepts() const
                     tc.setPosition(pos);
 
                     SimpleLexer tokenize;
-                    tokenize.setQtMocRunEnabled(true);
-                    tokenize.setObjCEnabled(true);
+                    LanguageFeatures lf = tokenize.languageFeatures();
+                    lf.qtMocRunEnabled = true;
+                    lf.objCEnabled = true;
+                    tokenize.setLanguageFeatures(lf);
                     tokenize.setSkipComments(false);
                     const QList<CPlusPlus::Token> &tokens = tokenize(tc.block().text(), BackwardsScanner::previousBlockState(tc.block()));
                     const int tokenIdx = SimpleLexer::tokenBefore(tokens, qMax(0, tc.positionInBlock() - 1));
@@ -1156,12 +1138,11 @@ bool ClangCompletionAssistProcessor::completeInclude(const QTextCursor &cursor)
 
     // Make completion for all relevant includes
     QStringList includePaths = m_interface->includePaths();
-    const QString &currentFilePath = QFileInfo(m_interface->document()->fileName()).path();
+    const QString &currentFilePath = QFileInfo(m_interface->fileName()).path();
     if (!includePaths.contains(currentFilePath))
         includePaths.append(currentFilePath);
 
-    const Core::MimeType mimeType =
-            Core::ICore::instance()->mimeDatabase()->findByType(QLatin1String("text/x-c++hdr"));
+    const Core::MimeType mimeType = Core::MimeDatabase::findByType(QLatin1String("text/x-c++hdr"));
     const QStringList suffixes = mimeType.suffixes();
 
     foreach (const QString &includePath, includePaths) {

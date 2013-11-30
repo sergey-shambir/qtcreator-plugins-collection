@@ -11,5 +11,10 @@
         <file>cxx_regression_9.cpp</file>
         <file>cxx_snippets_1.cpp</file>
         <file>cxx_snippets_2.cpp</file>
+        <file>cxx_snippets_3.cpp</file>
+        <file>cxx_snippets_4.cpp</file>
+        <file>objc_messages_1.mm</file>
+        <file>objc_messages_2.mm</file>
+        <file>objc_messages_3.mm</file>
     </qresource>
 </RCC>

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -32,7 +32,6 @@
 #include "clangutils.h"
 
 #include <coreplugin/icore.h>
-#include <coreplugin/messagemanager.h>
 #include <coreplugin/progressmanager/progressmanager.h>
 
 #include <utils/runextensions.h>
@@ -51,9 +50,9 @@ PCHManager::PCHManager(QObject *parent)
     Q_ASSERT(!m_instance);
     m_instance = this;
 
-    Core::MessageManager *msgMgr = Core::MessageManager::instance();
-    connect(this, SIGNAL(pchMessage(QString, bool)),
-            msgMgr, SLOT(printToOutputPane(QString, bool)));
+    QObject *msgMgr = Core::MessageManager::instance();
+    connect(this, SIGNAL(pchMessage(QString, Core::MessageManager::PrintToOutputPaneFlags)),
+            msgMgr, SLOT(write(QString, Core::MessageManager::PrintToOutputPaneFlags)));
 
     connect(&m_pchGenerationWatcher, SIGNAL(finished()),
             this, SLOT(updateActivePCHFiles()));
@@ -104,14 +103,16 @@ void PCHManager::setPCHInfo(const QList<ProjectPart::Ptr> &projectParts,
         m_activePCHFiles[pPart] = pchInfo;
 
     if (pchInfo) {
-        if (msgs.first)
-            emit pchMessage(tr("Successfully generated PCH file \"%1\".").arg(
-                                pchInfo->fileName()), false);
-        else
+        if (msgs.first) {
+            if (!pchInfo->fileName().isEmpty())
+                emit pchMessage(tr("Successfully generated PCH file \"%1\".").arg(
+                                    pchInfo->fileName()), Core::MessageManager::Silent);
+        } else {
             emit pchMessage(tr("Failed to generate PCH file \"%1\".").arg(
-                                pchInfo->fileName()), false);
+                                pchInfo->fileName()), Core::MessageManager::Silent);
+        }
         if (!msgs.second.isEmpty())
-            emit pchMessage(msgs.second.join(QLatin1String("\n")), true);
+            emit pchMessage(msgs.second.join(QLatin1String("\n")), Core::MessageManager::Flash);
     }
 }
 
@@ -140,7 +141,7 @@ void PCHManager::onProjectPartsUpdated(ProjectExplorer::Project *project)
     ClangProjectSettings *cps = settingsForProject(project);
     Q_ASSERT(cps);
 
-    CppModelManagerInterface *mmi = CppModelManagerInterface::instance();
+    CppTools::CppModelManagerInterface *mmi = CppTools::CppModelManagerInterface::instance();
     const QList<ProjectPart::Ptr> projectParts = mmi->projectInfo(
                 cps->project()).projectParts();
     updatePchInfo(cps, projectParts);
@@ -161,9 +162,56 @@ void PCHManager::updatePchInfo(ClangProjectSettings *cps,
                                              cps->customPchFile(),
                                              projectParts);
     m_pchGenerationWatcher.setFuture(future);
-    Core::ICore::instance()->progressManager()->addTask(future,
-                                                        tr("Precompiling..."),
-                                                        QLatin1String("Key.Tmp.Precompiling"));
+    Core::ProgressManager::addTask(future, tr("Precompiling..."), "Key.Tmp.Precompiling");
+}
+
+namespace {
+
+bool hasObjCFiles(const CppTools::ProjectPart::Ptr &projectPart)
+{
+    foreach (const CppTools::ProjectFile &file, projectPart->files) {
+        switch (file.kind) {
+        case CppTools::ProjectFile::ObjCHeader:
+        case CppTools::ProjectFile::ObjCSource:
+        case CppTools::ProjectFile::ObjCXXHeader:
+        case CppTools::ProjectFile::ObjCXXSource:
+            return true;
+        default:
+            break;
+        }
+    }
+    return false;
+}
+
+bool hasCppFiles(const CppTools::ProjectPart::Ptr &projectPart)
+{
+    foreach (const CppTools::ProjectFile &file, projectPart->files) {
+        switch (file.kind) {
+        case CppTools::ProjectFile::CudaSource:
+        case CppTools::ProjectFile::CXXHeader:
+        case CppTools::ProjectFile::CXXSource:
+        case CppTools::ProjectFile::OpenCLSource:
+        case CppTools::ProjectFile::ObjCXXHeader:
+        case CppTools::ProjectFile::ObjCXXSource:
+            return true;
+        default:
+            break;
+        }
+    }
+    return false;
+}
+
+CppTools::ProjectFile::Kind getPrefixFileKind(bool hasObjectiveC, bool hasCPlusPlus)
+{
+    if (hasObjectiveC && hasCPlusPlus)
+        return CppTools::ProjectFile::ObjCXXHeader;
+    else if (hasObjectiveC)
+        return CppTools::ProjectFile::ObjCHeader;
+    else if (hasCPlusPlus)
+        return CppTools::ProjectFile::CXXHeader;
+    return CppTools::ProjectFile::CHeader;
+}
+
 }
 
 void PCHManager::doPchInfoUpdate(QFutureInterface<void> &future,
@@ -175,22 +223,26 @@ void PCHManager::doPchInfoUpdate(QFutureInterface<void> &future,
 
 //    qDebug() << "switching to" << pchUsage;
 
-    Core::MessageManager *msgMgr = Core::MessageManager::instance();
-
     if (pchUsage == ClangProjectSettings::PchUse_None
             || (pchUsage == ClangProjectSettings::PchUse_Custom && customPchFile.isEmpty())) {
         future.setProgressRange(0, 2);
-        msgMgr->printToOutputPane(QLatin1String("updatePchInfo: switching to none"));
+        Core::MessageManager::write(QLatin1String("updatePchInfo: switching to none"),
+                                    Core::MessageManager::Silent);
         PCHInfo::Ptr emptyPch = PCHInfo::createEmpty();
         pchManager->setPCHInfo(projectParts, emptyPch, qMakePair(true, QStringList()));
         future.setProgressValue(1);
     } else if (pchUsage == ClangProjectSettings::PchUse_BuildSystem_Fuzzy) {
-        msgMgr->printToOutputPane(QLatin1String("updatePchInfo: switching to build system (fuzzy)"));
-        QHash<QString, QSet<QString> > includes, frameworks, clangFlags;
+        Core::MessageManager::write(
+                    QLatin1String("updatePchInfo: switching to build system (fuzzy)"),
+                    Core::MessageManager::Silent);
+        QHash<QString, QSet<QString> > includes, frameworks;
         QHash<QString, QSet<QByteArray> > definesPerPCH;
-        QHash<QString, ProjectPart::Language> lang;
         QHash<QString, bool> objc;
+        QHash<QString, bool> cplusplus;
         QHash<QString, ProjectPart::QtVersion> qtVersions;
+        QHash<QString, ProjectPart::CVersion> cVersions;
+        QHash<QString, ProjectPart::CXXVersion> cxxVersions;
+        QHash<QString, ProjectPart::CXXExtensions> cxxExtensionsMap;
         QHash<QString, QList<ProjectPart::Ptr> > inputToParts;
         foreach (const ProjectPart::Ptr &projectPart, projectParts) {
             if (projectPart->precompiledHeaders.isEmpty())
@@ -202,8 +254,14 @@ void PCHManager::doPchInfoUpdate(QFutureInterface<void> &future,
 
             includes[pch].unite(QSet<QString>::fromList(projectPart->includePaths));
             frameworks[pch].unite(QSet<QString>::fromList(projectPart->frameworkPaths));
-            lang[pch] = std::max(lang.value(pch, ProjectPart::C89), projectPart->language);
-            objc[pch] = objc.value(pch, false) || !projectPart->objcSourceFiles.isEmpty();
+            cVersions[pch] = std::max(cVersions.value(pch, ProjectPart::C89), projectPart->cVersion);
+            cxxVersions[pch] = std::max(cxxVersions.value(pch, ProjectPart::CXX98), projectPart->cxxVersion);
+            cxxExtensionsMap[pch] = cxxExtensionsMap[pch] | projectPart->cxxExtensions;
+
+            if (hasObjCFiles(projectPart))
+                objc[pch] = true;
+            if (hasCppFiles(projectPart))
+                cplusplus[pch] = true;
 
             QSet<QByteArray> projectDefines = QSet<QByteArray>::fromList(projectPart->defines.split('\n'));
             QMutableSetIterator<QByteArray> iter(projectDefines);
@@ -228,13 +286,29 @@ void PCHManager::doPchInfoUpdate(QFutureInterface<void> &future,
         foreach (const QString &pch, inputToParts.keys()) {
             if (future.isCanceled())
                 return;
-            QStringList options = Utils::createClangOptions(lang[pch],
-                                                            objc[pch],
-                                                            true,
-                                                            qtVersions[pch],
-                                                            definesPerPCH[pch].toList(),
-                                                            includes[pch].toList(),
-                                                            frameworks[pch].toList());
+            ProjectPart::Ptr projectPart(new ProjectPart);
+            projectPart->qtVersion = qtVersions[pch];
+            projectPart->cVersion = cVersions[pch];
+            projectPart->cxxVersion = cxxVersions[pch];
+            projectPart->cxxExtensions = cxxExtensionsMap[pch];
+            projectPart->includePaths = includes[pch].toList();
+            projectPart->frameworkPaths = frameworks[pch].toList();
+
+            QList<QByteArray> defines = definesPerPCH[pch].toList();
+            if (!defines.isEmpty()) {
+                projectPart->defines = defines[0];
+                for (int i = 1; i < defines.size(); ++i) {
+                    projectPart->defines += '\n';
+                    projectPart->defines += defines[i];
+                }
+            }
+
+            CppTools::ProjectFile::Kind prefixFileKind =
+                    getPrefixFileKind(objc.value(pch, false), cplusplus.value(pch, false));
+
+            QStringList options = Utils::createClangOptions(projectPart, prefixFileKind);
+            projectPart.reset();
+
             PCHInfo::Ptr pchInfo = pchManager->findMatchingPCH(pch, options, true);
             QPair<bool, QStringList> msgs = qMakePair(true, QStringList());
             if (pchInfo.isNull()) {
@@ -248,7 +322,9 @@ void PCHManager::doPchInfoUpdate(QFutureInterface<void> &future,
     } else if (pchUsage == ClangProjectSettings::PchUse_BuildSystem_Exact) {
         future.setProgressRange(0, projectParts.size() + 1);
         future.setProgressValue(0);
-        msgMgr->printToOutputPane(QLatin1String("updatePchInfo: switching to build system (exact)"));
+        Core::MessageManager::write(
+                    QLatin1String("updatePchInfo: switching to build system (exact)"),
+                    Core::MessageManager::Silent);
         foreach (const ProjectPart::Ptr &projectPart, projectParts) {
             if (future.isCanceled())
                 return;
@@ -258,19 +334,14 @@ void PCHManager::doPchInfoUpdate(QFutureInterface<void> &future,
             if (!QFile(pch).exists())
                 continue;
 
-            bool objc = !projectPart->objcSourceFiles.isEmpty();
+            const bool hasObjC = hasObjCFiles(projectPart);
             QStringList options = Utils::createClangOptions(
-                        projectPart->language,
-                        objc,
-                        true,
-                        projectPart->qtVersion,
-                        projectPart->defines.split('\n'),
-                        projectPart->includePaths,
-                        projectPart->frameworkPaths);
+                        projectPart, getPrefixFileKind(hasObjC, hasCppFiles(projectPart)));
+
             PCHInfo::Ptr pchInfo = pchManager->findMatchingPCH(pch, options, false);
             QPair<bool, QStringList> msgs = qMakePair(true, QStringList());
             if (pchInfo.isNull()) {
-                pchInfo = PCHInfo::createWithFileName(pch, options, objc);
+                pchInfo = PCHInfo::createWithFileName(pch, options, hasObjC);
                 msgs = precompile(pchInfo);
             }
             pchManager->setPCHInfo(QList<ProjectPart::Ptr>() << projectPart,
@@ -280,26 +351,30 @@ void PCHManager::doPchInfoUpdate(QFutureInterface<void> &future,
     } else if (pchUsage == ClangProjectSettings::PchUse_Custom) {
         future.setProgressRange(0, 2);
         future.setProgressValue(0);
-        msgMgr->printToOutputPane(QLatin1String("updatePchInfo: switching to custom") + customPchFile);
-        QSet<QString> includes, frameworks, clangFlags;
-        ProjectPart::Language lang = ProjectPart::C89;
+        Core::MessageManager::write(
+                    QLatin1String("updatePchInfo: switching to custom") + customPchFile,
+                    Core::MessageManager::Silent);
+
+        QSet<QString> includes, frameworks;
         bool objc = false;
-        ProjectPart::QtVersion qtVersion = ProjectPart::NoQt;
+        bool cplusplus = false;
+        ProjectPart::Ptr united(new ProjectPart());
+        united->cxxVersion = ProjectPart::CXX98;
         foreach (const ProjectPart::Ptr &projectPart, projectParts) {
             includes.unite(QSet<QString>::fromList(projectPart->includePaths));
             frameworks.unite(QSet<QString>::fromList(projectPart->frameworkPaths));
-            lang = std::max(lang, projectPart->language);
-            qtVersion = std::max(qtVersion, projectPart->qtVersion);
-            objc |= !projectPart->objcSourceFiles.isEmpty();
+            united->cVersion = std::max(united->cVersion, projectPart->cVersion);
+            united->cxxVersion = std::max(united->cxxVersion, projectPart->cxxVersion);
+            united->qtVersion = std::max(united->qtVersion, projectPart->qtVersion);
+            objc |= hasObjCFiles(projectPart);
+            cplusplus |= hasCppFiles(projectPart);
         }
+        united->frameworkPaths = frameworks.toList();
+        united->includePaths = includes.toList();
+        QStringList opts = Utils::createClangOptions(
+                    united, getPrefixFileKind(objc, cplusplus));
+        united.clear();
 
-        QStringList opts = Utils::createClangOptions(lang,
-                                                     objc,
-                                                     true,
-                                                     qtVersion,
-                                                     QList<QByteArray>(),
-                                                     includes.toList(),
-                                                     frameworks.toList());
         PCHInfo::Ptr pchInfo = pchManager->findMatchingPCH(customPchFile, opts, true);
         QPair<bool, QStringList> msgs = qMakePair(true, QStringList());;
         if (future.isCanceled())
@@ -347,8 +422,8 @@ void PCHManager::updateActivePCHFiles()
     QMutexLocker locker(&m_mutex);
 
     QSet<ProjectPart::Ptr> activeParts;
-    CppModelManagerInterface *mmi = CppModelManagerInterface::instance();
-    foreach (const CppModelManagerInterface::ProjectInfo &pi, mmi->projectInfos())
+    CppTools::CppModelManagerInterface *mmi = CppTools::CppModelManagerInterface::instance();
+    foreach (const CppTools::CppModelManagerInterface::ProjectInfo &pi, mmi->projectInfos())
         activeParts.unite(QSet<ProjectPart::Ptr>::fromList(pi.projectParts()));
     QList<ProjectPart::Ptr> partsWithPCHFiles = m_activePCHFiles.keys();
     foreach (ProjectPart::Ptr pPart, partsWithPCHFiles)

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -49,12 +49,6 @@
 namespace ClangCodeModel {
 namespace Internal {
 
-ClangCodeModelPlugin::ClangCodeModelPlugin()
-    : m_completionAssistProvider(0)
-    , m_highlightingFactory(0)
-{
-}
-
 bool ClangCodeModelPlugin::initialize(const QStringList &arguments, QString *errorMessage)
 {
     Q_UNUSED(arguments)
@@ -64,15 +58,10 @@ bool ClangCodeModelPlugin::initialize(const QStringList &arguments, QString *err
 
     ClangCodeModel::Internal::initializeClang();
 
-    connect(Core::ICore::editorManager(), SIGNAL(editorAboutToClose(Core::IEditor*)),
+    connect(Core::EditorManager::instance(), SIGNAL(editorAboutToClose(Core::IEditor*)),
             &m_liveUnitsManager, SLOT(editorAboutToClose(Core::IEditor*)));
-    connect(Core::ICore::editorManager(), SIGNAL(editorOpened(Core::IEditor*)),
+    connect(Core::EditorManager::instance(), SIGNAL(editorOpened(Core::IEditor*)),
             &m_liveUnitsManager, SLOT(editorOpened(Core::IEditor*)));
-
-#ifdef CLANG_COMPLETION
-    m_completionAssistProvider.reset(new ClangCompletionAssistProvider);
-    CPlusPlus::CppModelManagerInterface::instance()->setCppCompletionAssistProvider(m_completionAssistProvider.data());
-#endif // CLANG_COMPLETION
 
     PCHManager *pchManager = new PCHManager(this);
     FastIndexer *fastIndexer = 0;
@@ -80,41 +69,25 @@ bool ClangCodeModelPlugin::initialize(const QStringList &arguments, QString *err
 #ifdef CLANG_INDEXING
     m_indexer.reset(new ClangIndexer);
     fastIndexer = m_indexer.data();
-    CPlusPlus::CppModelManagerInterface::instance()->setIndexingSupport(m_indexer->indexingSupport());
-
-    // wire up the pch manager
-    ProjectExplorer::ProjectExplorerPlugin *pe =
-       ProjectExplorer::ProjectExplorerPlugin::instance();
-    ProjectExplorer::SessionManager *session = pe->session();
-    connect(session, SIGNAL(aboutToRemoveProject(ProjectExplorer::Project*)),
-            pchManager, SLOT(onAboutToRemoveProject(ProjectExplorer::Project*)));
-    connect(CPlusPlus::CppModelManagerInterface::instance(), SIGNAL(projectPartsUpdated(ProjectExplorer::Project*)),
-            pchManager, SLOT(onProjectPartsUpdated(ProjectExplorer::Project*)));
-#else // !CLANG_INDEXING
-    Q_UNUSED(pchManager);
+    CppTools::CppModelManagerInterface::instance()->setIndexingSupport(m_indexer->indexingSupport());
 #endif // CLANG_INDEXING
 
-#ifdef CLANG_HIGHLIGHTING
-    m_highlightingFactory.reset(new ClangHighlightingSupportFactory(fastIndexer));
-    CPlusPlus::CppModelManagerInterface::instance()->setHighlightingSupportFactory(m_highlightingFactory.data());
-#else // !CLANG_HIGHLIGHTING
-    Q_UNUSED(fastIndexer);
-#endif // CLANG_HIGHLIGHTING
+    // wire up the pch manager
+    QObject *session = ProjectExplorer::SessionManager::instance();
+    connect(session, SIGNAL(aboutToRemoveProject(ProjectExplorer::Project*)),
+            pchManager, SLOT(onAboutToRemoveProject(ProjectExplorer::Project*)));
+    connect(CppTools::CppModelManagerInterface::instance(), SIGNAL(projectPartsUpdated(ProjectExplorer::Project*)),
+            pchManager, SLOT(onProjectPartsUpdated(ProjectExplorer::Project*)));
+
+    m_modelManagerSupport.reset(new ModelManagerSupport(fastIndexer));
+    CppTools::CppModelManagerInterface::instance()->addModelManagerSupport(
+                m_modelManagerSupport.data());
 
     return true;
 }
 
 void ClangCodeModelPlugin::extensionsInitialized()
 {
-}
-
-ExtensionSystem::IPlugin::ShutdownFlag ClangCodeModelPlugin::aboutToShutdown()
-{
-    CPlusPlus::CppModelManagerInterface::instance()->setCppCompletionAssistProvider(0);
-    CPlusPlus::CppModelManagerInterface::instance()->setHighlightingSupportFactory(0);
-    CPlusPlus::CppModelManagerInterface::instance()->setIndexingSupport(0);
-
-    return ExtensionSystem::IPlugin::aboutToShutdown();
 }
 
 } // namespace Internal

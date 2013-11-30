@@ -39,6 +39,28 @@ enum PriorityFixes {
 
 namespace ClangCodeModel {
 
+namespace {
+struct ObjCMessagePart {
+    QString text;
+    int signatureLen; // length of "setScale:" in "setScale: 13"
+
+    ObjCMessagePart() : signatureLen(0) {}
+
+    ObjCMessagePart(const QString &signature, int &indentBonus)
+        : text(signature)
+        , signatureLen(signature.length() + indentBonus)
+    {
+        indentBonus = 0;
+    }
+
+    void addToSignature(const QString &signature)
+    {
+        text += signature;
+        signatureLen += signature.length();
+    }
+};
+} // anonymous namespace
+
 /**
  * @class ClangCodeModel::CompletionProposalsBuilder
  * @brief Captures completion lists and than processes sequence of completion chunks
@@ -47,9 +69,12 @@ namespace ClangCodeModel {
  * only if result contains chunks with kind 'Optional'
  * Different proposals can have the same text, it's normal behavior.
  *
+ * @note Unit tests are in \a clangcompletion_test.cpp
+ *
  * @note Unresolved problems:
  *  Function hint not appear after space: "foo(1, ";
  *  Slot can have optional arguments, that produces 2 slots.
+ *
  */
 
 CompletionProposalsBuilder::CompletionProposalsBuilder(QList<CodeCompletionResult> &results, quint64 contexts, bool isSignalSlotCompletion)
@@ -63,10 +88,10 @@ void CompletionProposalsBuilder::operator ()(const CXCompletionResult &cxResult)
 {
     resetWithResult(cxResult);
 
-#if defined(CINDEX_VERSION) // since clang 3.2
+#if defined(CINDEX_VERSION) && (CINDEX_VERSION > 5)
     const QString brief = Internal::getQString(clang_getCompletionBriefComment(cxResult.CompletionString));
     if (!brief.isEmpty())
-        m_comment += QLatin1String("<b>@brief</b> ") + Qt::escape(brief);
+        m_comment += QLatin1String("<b>Brief:</b> ") + Qt::escape(brief);
 #endif
 
     if (m_resultAvailability == CodeCompletionResult::Deprecated) {
@@ -77,7 +102,7 @@ void CompletionProposalsBuilder::operator ()(const CXCompletionResult &cxResult)
     m_hint = QLatin1String("<p>");
     switch (m_resultKind) {
     case CodeCompletionResult::ObjCMessageCompletionKind:
-        concatChunksForObjectiveCMessage(cxResult.CompletionString);
+        concatChunksForObjectiveCMessage(cxResult);
         break;
     case CodeCompletionResult::ClassCompletionKind:
     case CodeCompletionResult::NamespaceCompletionKind:
@@ -337,54 +362,104 @@ void CompletionProposalsBuilder::finalize()
  * 'respondsToSelector:$(SEL)sel$'.
  * Hint consists of snippet preview and doxygen 'return' entry with returned type.
  */
-void CompletionProposalsBuilder::concatChunksForObjectiveCMessage(const CXCompletionString &cxString)
+void CompletionProposalsBuilder::concatChunksForObjectiveCMessage(const CXCompletionResult &cxResult)
 {
-    QString signature; // HTML compliant signature
+    CXCompletionString cxString = cxResult.CompletionString;
+    const unsigned count = clang_getNumCompletionChunks(cxString);
+    unsigned index = 0;
+    QString hintPrefix;
+    if (cxResult.CursorKind == CXCursor_ObjCClassMethodDecl)
+        hintPrefix += QLatin1Char('+');
+    else
+        hintPrefix += QLatin1Char('-');
+    int indentBonus = 1;
 
-    unsigned count = clang_getNumCompletionChunks(cxString);
-    for (unsigned i = 0; i < count; ++i) {
-        CXCompletionChunkKind chunkKind = clang_getCompletionChunkKind(cxString, i);
-        const QString text = Internal::getQString(clang_getCompletionChunkText(cxString, i), false);
+    bool addSpaceAtPrefixEnd = true;
+    for (; index < count; ++index) {
+        CXCompletionChunkKind chunkKind = clang_getCompletionChunkKind(cxString, index);
+        if (chunkKind == CXCompletionChunk_TypedText || chunkKind == CXCompletionChunk_Informative) {
+            break;
+        }
+        const QString text = Internal::getQString(clang_getCompletionChunkText(cxString, index), false);
+        if (chunkKind == CXCompletionChunk_ResultType) {
+            hintPrefix += QLatin1String("(");
+            hintPrefix += Qt::escape(text);
+            hintPrefix += QLatin1String(") ");
+            indentBonus += 3 + text.length();
+            addSpaceAtPrefixEnd = false;
+        } else {
+            hintPrefix += Qt::escape(text);
+            indentBonus += text.length();
+            m_snippet += text;
+        }
+    }
+    if (addSpaceAtPrefixEnd) {
+        m_snippet += QLatin1Char(' ');
+        hintPrefix += QLatin1Char(' ');
+        indentBonus += 1;
+    }
+
+    m_hint += hintPrefix;
+
+    QList<ObjCMessagePart> parts;
+    bool previousWasTypedText = false;
+    for (; index < count; ++index) {
+        CXCompletionChunkKind chunkKind = clang_getCompletionChunkKind(cxString, index);
+        const QString text = Internal::getQString(clang_getCompletionChunkText(cxString, index), false);
 
         switch (chunkKind) {
         case CXCompletionChunk_TypedText:
-            signature += text;
+            if (previousWasTypedText)
+                parts.back().addToSignature(text);
+            else
+                parts.append(ObjCMessagePart(text, indentBonus));
+            m_snippet += text;
             m_text += text;
+            break;
+        case CXCompletionChunk_Informative:
+            parts.append(ObjCMessagePart(text, indentBonus));
             break;
         case CXCompletionChunk_Text:
         case CXCompletionChunk_LeftParen:
         case CXCompletionChunk_RightParen:
         case CXCompletionChunk_Comma:
         case CXCompletionChunk_HorizontalSpace:
-            signature += text;
+            m_snippet += text;
+            parts.back().text += Qt::escape(text);
             break;
         case CXCompletionChunk_Placeholder:
-            signature += QLatin1String("<b>");
-            signature += Qt::escape(text);
-            signature += QLatin1String("</b>");
+            appendSnippet(text);
+            parts.back().text += QLatin1String("<b>");
+            parts.back().text += Qt::escape(text);
+            parts.back().text += QLatin1String("</b>");
             break;
         case CXCompletionChunk_LeftAngle:
-            signature += QLatin1String("&lt;");
+            m_snippet += text;
+            parts.back().text += QLatin1String("&lt;");
             break;
         case CXCompletionChunk_RightAngle:
-            signature += QLatin1String("&gt;");
-            break;
-        case CXCompletionChunk_ResultType:
-            attachResultTypeToComment(Qt::escape(text));
+            m_snippet += text;
+            parts.back().text += QLatin1String("&gt;");
             break;
         default:
             break;
         }
+
+        previousWasTypedText = (chunkKind == CXCompletionChunk_TypedText);
     }
 
-    m_hint += signature;
-
-    signature.replace(QLatin1String("&lt;"), QLatin1String("<"));
-    signature.replace(QLatin1String("&gt;"), QLatin1String(">"));
-
-    m_snippet = signature;
-    m_snippet.replace(QLatin1String("<b>"), QLatin1String("$"))
-            .replace(QLatin1String("</b>"), QLatin1String("$"));
+    int indent = 0;
+    foreach (const ObjCMessagePart &part, parts)
+        indent = qMax(indent, part.signatureLen);
+    bool isFirstPart = true;
+    foreach (const ObjCMessagePart &part, parts) {
+        if (!isFirstPart)
+            m_hint += QLatin1String("<br/>");
+        isFirstPart = false;
+        for (int i = 0; i < indent - part.signatureLen; ++i)
+            m_hint += QLatin1String("&nbsp;");
+        m_hint += part.text;
+    }
 }
 
 /**
@@ -392,6 +467,7 @@ void CompletionProposalsBuilder::concatChunksForObjectiveCMessage(const CXComple
  */
 void CompletionProposalsBuilder::concatChunksForNestedName(const CXCompletionString &cxString)
 {
+    bool hasPlaceholder = false;
     unsigned count = clang_getNumCompletionChunks(cxString);
     for (unsigned i = 0; i < count; ++i) {
         CXCompletionChunkKind chunkKind = clang_getCompletionChunkKind(cxString, i);
@@ -401,12 +477,30 @@ void CompletionProposalsBuilder::concatChunksForNestedName(const CXCompletionStr
         case CXCompletionChunk_TypedText:
         case CXCompletionChunk_Text:
             m_text += text;
+            m_snippet += text;
+            m_hint += text;
+            break;
+
+        case CXCompletionChunk_LeftAngle:
+        case CXCompletionChunk_RightAngle:
+        case CXCompletionChunk_Comma:
+        case CXCompletionChunk_HorizontalSpace:
+            m_snippet += text;
+            m_hint += Qt::escape(text);
+            break;
+
+        case CXCompletionChunk_Placeholder:
+            hasPlaceholder = true;
+            appendSnippet(text);
+            appendHintBold(text);
             break;
 
         default:
             break;
         }
     }
+    if (!hasPlaceholder)
+        m_snippet.clear();
 }
 
 /**
@@ -429,12 +523,8 @@ void CompletionProposalsBuilder::concatChunksAsSnippet(const CXCompletionString 
 
         case CXCompletionChunk_Placeholder:
             m_text += text;
-            m_snippet += QLatin1Char('$');
-            m_snippet += text;
-            m_snippet += QLatin1Char('$');
-            m_hint += QLatin1String("<b>");
-            m_hint += text;
-            m_hint += QLatin1String("</b>");
+            appendSnippet(text);
+            appendHintBold(text);
             break;
         case CXCompletionChunk_LeftAngle:
             m_snippet += text;
@@ -471,6 +561,7 @@ void CompletionProposalsBuilder::concatChunksAsSnippet(const CXCompletionString 
 void CompletionProposalsBuilder::concatChunksOnlyTypedText(const CXCompletionString &cxString)
 {
     bool previousChunkWasLParen = false;
+    bool isInsideTemplateSpec = false;
 
     unsigned count = clang_getNumCompletionChunks(cxString);
     for (unsigned i = 0; i < count; ++i) {
@@ -480,20 +571,30 @@ void CompletionProposalsBuilder::concatChunksOnlyTypedText(const CXCompletionStr
         switch (chunkKind) {
         case CXCompletionChunk_LeftParen:
         case CXCompletionChunk_RightParen:
-        case CXCompletionChunk_Comma:
-        case CXCompletionChunk_HorizontalSpace:
         case CXCompletionChunk_Text:
-        case CXCompletionChunk_Placeholder:
         case CXCompletionChunk_LeftAngle:
         case CXCompletionChunk_RightAngle:
             m_hint += Qt::escape(text);
             break;
 
+        case CXCompletionChunk_HorizontalSpace:
+        case CXCompletionChunk_Comma:
+            if (isInsideTemplateSpec) {
+                m_snippet += text;
+            }
+            m_hint += Qt::escape(text);
+            break;
+
+        case CXCompletionChunk_Placeholder:
+            if (isInsideTemplateSpec) {
+                appendSnippet(text);
+            }
+            m_hint += Qt::escape(text);
+            break;
+
         case CXCompletionChunk_TypedText:
             m_text = text;
-            m_hint += QLatin1String("<b>");
-            m_hint += Qt::escape(text);
-            m_hint += QLatin1String("</b>");
+            appendHintBold(text);
             break;
 
         case CXCompletionChunk_ResultType: {
@@ -524,8 +625,18 @@ void CompletionProposalsBuilder::concatChunksOnlyTypedText(const CXCompletionStr
         if (chunkKind == CXCompletionChunk_LeftParen) {
             previousChunkWasLParen = true;
             m_hasParameters = true;
-        } else
+        } else {
             previousChunkWasLParen = false;
+        }
+
+        if (chunkKind == CXCompletionChunk_LeftAngle) {
+            m_snippet = m_text;
+            m_snippet += text;
+            isInsideTemplateSpec = true;
+        } else if (chunkKind == CXCompletionChunk_RightAngle) {
+            isInsideTemplateSpec = false;
+            m_snippet += text;
+        }
     }
 }
 
@@ -618,6 +729,20 @@ void CompletionProposalsBuilder::attachResultTypeToComment(const QString &result
 
     m_comment += QLatin1String("<b>@return</b> ");
     m_comment += resultType;
+}
+
+void CompletionProposalsBuilder::appendSnippet(const QString &text)
+{
+    m_snippet += QLatin1Char('$');
+    m_snippet += text;
+    m_snippet += QLatin1Char('$');
+}
+
+void CompletionProposalsBuilder::appendHintBold(const QString &text)
+{
+    m_hint += QLatin1String("<b>");
+    m_hint += Qt::escape(text);
+    m_hint += QLatin1String("</b>");
 }
 
 } // namespace ClangCodeModel

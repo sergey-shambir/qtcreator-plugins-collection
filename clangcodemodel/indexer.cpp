@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -83,7 +83,7 @@ namespace ClangCodeModel {
 // The indexing result, containing the symbols found, reported by the indexer processor.
 struct IndexingResult
 {
-    typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
+    typedef CppTools::ProjectPart ProjectPart;
 
     IndexingResult()
     {}
@@ -111,7 +111,7 @@ class IndexerPrivate : public QObject
     Q_OBJECT
 
 public:
-    typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
+    typedef CppTools::ProjectPart ProjectPart;
 
 public:
     IndexerPrivate(Indexer *indexer);
@@ -235,7 +235,7 @@ namespace ClangCodeModel {
 class LibClangIndexer: public QRunnable
 {
 protected:
-    typedef CPlusPlus::CppModelManagerInterface::ProjectPart ProjectPart;
+    typedef CppTools::ProjectPart ProjectPart;
 
 public:
     LibClangIndexer(IndexerPrivate *indexer)
@@ -524,10 +524,10 @@ protected:
         switch (s->kind) {
         case CXCursor_EnumDecl: sym.m_kind = ClangCodeModel::Symbol::Enum; break;
         case CXCursor_StructDecl:
-        case CXCursor_ClassDecl: sym.m_kind = ClangCodeModel::Symbol::Enum; break;
+        case CXCursor_ClassDecl: sym.m_kind = ClangCodeModel::Symbol::Class; break;
         case CXCursor_CXXMethod: sym.m_kind = ClangCodeModel::Symbol::Method; break;
         case CXCursor_FunctionTemplate:
-        case CXCursor_FunctionDecl: sym.m_kind = ClangCodeModel::Symbol::Enum; break;
+        case CXCursor_FunctionDecl: sym.m_kind = ClangCodeModel::Symbol::Function; break;
         case CXCursor_DeclStmt: sym.m_kind = ClangCodeModel::Symbol::Declaration; break;
         case CXCursor_Constructor: sym.m_kind = ClangCodeModel::Symbol::Constructor; break;
         case CXCursor_Destructor: sym.m_kind = ClangCodeModel::Symbol::Destructor; break;
@@ -601,12 +601,9 @@ restart:
                 goto restart;
             }
 
-            const bool isObjC = !pchInfo.isNull() && pchInfo->objcWasEnabled();
-            const bool isHeader = pPart && pPart->headerFiles.contains(fd.m_fileName);
-            QStringList opts = ClangCodeModel::Utils::createClangOptions(pPart, isObjC, isHeader);
+            QStringList opts = ClangCodeModel::Utils::createClangOptions(pPart, fd.m_fileName);
             if (!pchInfo.isNull())
                 opts.append(Utils::createPCHInclusionOptions(pchInfo->fileName()));
-            const int optsSize = opts.size();
 
             ScopedClangOptions scopedOpts(opts);
             QByteArray fileName = fd.m_fileName.toUtf8();
@@ -618,7 +615,7 @@ restart:
             /*int result =*/ clang_indexSourceFile(idxAction, this,
                                                    &IndexCB, sizeof(IndexCB),
                                                    index_opts, fileName.constData(),
-                                                   scopedOpts.data(), optsSize, 0, 0, 0,
+                                                   scopedOpts.data(), scopedOpts.size(), 0, 0, 0,
                                                    parsingOptions);
 
             // index imported ASTs:
@@ -1087,7 +1084,7 @@ void IndexerPrivate::analyzeRestoredSymbols()
     }
 }
 
-void IndexerPrivate::runQuickIndexing(const Unit &unit, const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &part)
+void IndexerPrivate::runQuickIndexing(const Unit &unit, const CppTools::ProjectPart::Ptr &part)
 {
     QMutexLocker locker(&m_mutex);
 
@@ -1281,7 +1278,7 @@ void Indexer::match(ClangSymbolSearcher *searcher) const
     m_d->match(searcher);
 }
 
-void Indexer::runQuickIndexing(const Unit &unit, const CPlusPlus::CppModelManagerInterface::ProjectPart::Ptr &part)
+void Indexer::runQuickIndexing(const Unit &unit, const CppTools::ProjectPart::Ptr &part)
 {
     m_d->runQuickIndexing(unit, part);
 }

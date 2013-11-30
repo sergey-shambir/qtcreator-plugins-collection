@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -32,7 +32,7 @@
 
 #include <qglobal.h>
 
-#if defined(CLANG_LIBRARY)
+#if defined(CLANGCODEMODEL_LIBRARY)
 #  define CLANG_EXPORT Q_DECL_EXPORT
 #else
 #  define CLANG_EXPORT Q_DECL_IMPORT

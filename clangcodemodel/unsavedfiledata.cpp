@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -40,9 +40,12 @@ UnsavedFileData::UnsavedFileData(const UnsavedFiles &unsavedFiles)
         unsigned idx = 0;
         for (UnsavedFiles::const_iterator it = unsavedFiles.begin(); it != unsavedFiles.end(); ++it, ++idx) {
             QByteArray contents = it.value();
-            m_files[idx].Contents = qstrdup(contents.constData());
+            const char *contentChars = qstrdup(contents.constData());
+            m_files[idx].Contents = contentChars;
             m_files[idx].Length = contents.size();
-            m_files[idx].Filename = qstrdup(it.key().toUtf8().constData());
+
+            const char *fileName = qstrdup(it.key().toUtf8().constData());
+            m_files[idx].Filename = fileName;
         }
     }
 }

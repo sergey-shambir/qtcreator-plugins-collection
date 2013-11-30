@@ -56,7 +56,7 @@ private:
     void resetWithResult(const CXCompletionResult &cxResult);
     void finalize();
 
-    void concatChunksForObjectiveCMessage(const CXCompletionString &cxString);
+    void concatChunksForObjectiveCMessage(const CXCompletionResult &cxResult);
     void concatChunksForNestedName(const CXCompletionString &cxString);
     void concatChunksAsSnippet(const CXCompletionString &cxString);
     void concatChunksOnlyTypedText(const CXCompletionString &cxString);
@@ -64,6 +64,9 @@ private:
     void appendOptionalChunks(const CXCompletionString &cxString,
                               int insertionIndex);
     void attachResultTypeToComment(const QString &text);
+
+    void appendSnippet(const QString &text);
+    void appendHintBold(const QString &text);
 
     QList<CodeCompletionResult> &m_results;
     const quint64 m_contexts;

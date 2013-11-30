@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -68,7 +68,7 @@ public:
     QByteArray m_fileName;
     QStringList m_compOptions;
     SharedClangOptions m_sharedCompOptions;
-    unsigned m_managOptions;
+    unsigned m_managementOptions;
     UnsavedFiles m_unsaved;
     QDateTime m_timeStamp;
 };
@@ -82,6 +82,7 @@ using namespace ClangCodeModel::Internal;
 UnitData::UnitData()
     : m_index(0)
     , m_tu(0)
+    , m_managementOptions(0)
 {
 }
 
@@ -89,16 +90,15 @@ UnitData::UnitData(const QString &fileName)
     : m_index(clang_createIndex(/*excludeDeclsFromPCH*/ 1, /*displayDiagnostics*/ 0))
     , m_tu(0)
     , m_fileName(fileName.toUtf8())
+    , m_managementOptions(0)
 {
 }
 
 UnitData::~UnitData()
 {
     unload();
-    if (m_index) {
-        clang_disposeIndex(m_index);
-        m_index = 0;
-    }
+    clang_disposeIndex(m_index);
+    m_index = 0;
 }
 
 void UnitData::swap(UnitData *other)
@@ -108,7 +108,7 @@ void UnitData::swap(UnitData *other)
     qSwap(m_fileName, other->m_fileName);
     qSwap(m_compOptions, other->m_compOptions);
     qSwap(m_sharedCompOptions, other->m_sharedCompOptions);
-    qSwap(m_managOptions, other->m_managOptions);
+    qSwap(m_managementOptions, other->m_managementOptions);
     qSwap(m_unsaved, other->m_unsaved);
     qSwap(m_timeStamp, other->m_timeStamp);
 }
@@ -196,12 +196,12 @@ void Unit::setUnsavedFiles(const UnsavedFiles &unsavedFiles)
 
 unsigned Unit::managementOptions() const
 {
-    return m_data->m_managOptions;
+    return m_data->m_managementOptions;
 }
 
 void Unit::setManagementOptions(unsigned managementOptions)
 {
-    m_data->m_managOptions = managementOptions;
+    m_data->m_managementOptions = managementOptions;
 }
 
 bool Unit::isUnique() const
@@ -233,12 +233,7 @@ void Unit::parse()
                                               m_data->m_sharedCompOptions.size(),
                                               unsaved.files(),
                                               unsaved.count(),
-                                              m_data->m_managOptions);
-
-#ifdef DEBUG_UNIT_COUNT
-    if (m_data->m_tu)
-        qDebug() << "# translation units:" << (unitDataCount.fetchAndAddOrdered(1) + 1);
-#endif // DEBUG_UNIT_COUNT
+                                              m_data->m_managementOptions);
 }
 
 void Unit::reparse()
@@ -299,7 +294,7 @@ CXSourceLocation Unit::getLocation(const CXFile &file, unsigned line, unsigned c
 void Unit::codeCompleteAt(unsigned line, unsigned column, ScopedCXCodeCompleteResults &results)
 {
     unsigned flags = clang_defaultCodeCompleteOptions();
-#if defined(CINDEX_VERSION) && (CINDEX_VERSION >= 6) // clang >= 3.2
+#if defined(CINDEX_VERSION) && (CINDEX_VERSION > 5)
     flags |= CXCodeComplete_IncludeBriefComments;
 #endif
 
@@ -356,6 +351,13 @@ CXIndex Unit::clangIndex() const
     return m_data->m_index;
 }
 
+QString Unit::getTokenSpelling(const CXToken &tok) const
+{
+    Q_ASSERT(isLoaded());
+
+    return getQString(clang_getTokenSpelling(m_data->m_tu, tok));
+}
+
 CXCursor Unit::getTranslationUnitCursor() const
 {
     Q_ASSERT(isLoaded());
@@ -408,25 +410,19 @@ IdentifierTokens::IdentifierTokens(const Unit &unit, unsigned firstLine, unsigne
 
     // Retrieve all identifier tokens:
     unit.tokenize(range, &m_tokens, &m_tokenCount);
-
-    for (unsigned i = 0; i < m_tokenCount; ++i)
-        if (CXToken_Identifier == clang_getTokenKind(m_tokens[i]))
-            m_identifierTokens.append(m_tokens[i]);
-
-    const unsigned idCount = m_identifierTokens.count();
-    if (idCount == 0)
+    if (m_tokenCount == 0)
         return;
 
     // Get the cursors for the tokens:
-    m_cursors = new CXCursor[idCount];
-    unit.annotateTokens(m_identifierTokens.data(),
-                        m_identifierTokens.count(),
+    m_cursors = new CXCursor[m_tokenCount];
+    unit.annotateTokens(m_tokens,
+                        m_tokenCount,
                         m_cursors);
 
-    m_extents = new CXSourceRange[idCount];
+    m_extents = new CXSourceRange[m_tokenCount];
     // Create the markers using the cursor to check the types:
-    for (unsigned i = 0; i < idCount; ++i)
-        m_extents[i] = unit.getTokenExtent(m_identifierTokens[i]);
+    for (unsigned i = 0; i < m_tokenCount; ++i)
+        m_extents[i] = unit.getTokenExtent(m_tokens[i]);
 }
 
 IdentifierTokens::~IdentifierTokens()

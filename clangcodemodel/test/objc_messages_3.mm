@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
 ** Contact: http://www.qt-project.org/legal
 **
 ** This file is part of Qt Creator.
@@ -27,34 +27,28 @@
 **
 ****************************************************************************/
 
-#include "keywords.h"
+@protocol Aaaa
+@end
 
-#include <llvm/ADT/StringRef.h>
-#include <clang/Basic/IdentifierTable.h>
-#include <clang/Basic/LangOptions.h>
+@interface Bbbb
+@end
 
-using namespace ClangCodeModel;
-using namespace clang;
+@interface PopCornTracker {
+    int _quality;
+    int _eatenAmount;
+    int _remainedAmount;
+}
+- (int) eatenAmount;
+- (int) spectacleQuality;
+- (int) desiredAmountForDramaDose: (int)dose andPersonsCount: (int) count;
++ (id) createNewTracker;
++ (id) createOldTracker:(Bbbb<Aaaa> *) aabb;
+- (id) initWithOldTracker:(Bbbb<Aaaa> *) aabb;
+@end
 
-Keywords::Keywords()
-{}
-
-Keywords::~Keywords()
-{}
-
-void Keywords::load(const LangOptions &options)
-{
-    if (m_table)
-        return;
-
-    m_table.reset(new IdentifierTable(options));
+@interface AdvancedPopCornTracker : PopCornTracker {
 }
 
-bool Keywords::contains(const char *buffer, size_t length) const
-{
-    llvm::StringRef s(buffer, length);
-    IdentifierInfo *info = &m_table->get(s);
-    if (info->getTokenID() == tok::identifier)
-        return false;
-    return true;
-}
+- <<<<
+
+@end
