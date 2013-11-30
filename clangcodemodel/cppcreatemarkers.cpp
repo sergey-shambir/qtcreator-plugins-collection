@@ -38,11 +38,16 @@
 
 #include <QDebug>
 
+#define SEMANTIC_MARKERS_COUNT
 //#define DEBUG_TIMING
 
 using namespace ClangCodeModel;
 using namespace ClangCodeModel::Internal;
 using namespace CppTools;
+
+#ifdef SEMANTIC_MARKERS_COUNT
+static QBasicAtomicInt unitDataCount = Q_BASIC_ATOMIC_INITIALIZER(0);
+#endif
 
 CreateMarkers *CreateMarkers::create(SemanticMarker::Ptr semanticMarker,
                                      const QString &fileName,
@@ -68,6 +73,9 @@ CreateMarkers::CreateMarkers(SemanticMarker::Ptr semanticMarker,
     , m_lastLine(lastLine)
     , m_fastIndexer(fastIndexer)
 {
+#ifdef SEMANTIC_MARKERS_COUNT
+    qDebug() << "# CreateMarkers:" << (unitDataCount.fetchAndAddOrdered(1) + 1);
+#endif // SEMANTIC_MARKERS_COUNT
     Q_ASSERT(!semanticMarker.isNull());
 
     m_flushRequested = false;
@@ -77,7 +85,11 @@ CreateMarkers::CreateMarkers(SemanticMarker::Ptr semanticMarker,
 }
 
 CreateMarkers::~CreateMarkers()
-{ }
+{
+#ifdef SEMANTIC_MARKERS_COUNT
+        qDebug() << "# CreateMarkers:" << (unitDataCount.fetchAndAddOrdered(-1) - 1);
+#endif // SEMANTIC_MARKERS_COUNT
+}
 
 void CreateMarkers::run()
 {

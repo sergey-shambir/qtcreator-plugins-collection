@@ -99,6 +99,13 @@ void DiagnosticsHandler::setDiagnostics(const QList<ClangCodeModel::Diagnostic> 
             }
         } else {
             c.setPosition(c.position() + m.length(), QTextCursor::KeepAnchor);
+            /// SERGEY: temporary hack for too big ranges
+            if (static_cast<unsigned>(c.blockNumber()) > m.location().line()) {
+                // range takes more than 2 lines
+                int savedPos = c.position();
+                c = QTextCursor(c.block());
+                c.setPosition(savedPos, QTextCursor::KeepAnchor);
+            }
         }
 
         sel.cursor = c;

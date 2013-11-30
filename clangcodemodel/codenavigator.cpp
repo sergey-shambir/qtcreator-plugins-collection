@@ -50,7 +50,7 @@ void CodeNavigator::setup(const QString &fileName, Indexer *indexer)
 SourceLocation CodeNavigator::followItem(unsigned line, unsigned column) const
 {
     const CXCursor &cursor = getCursor(line, column);
-    if (clang_equalCursors(cursor, clang_getNullCursor()))
+    if (clang_Cursor_isNull(cursor))
         return SourceLocation();
 
     CXCursorKind cursorKind = clang_getCursorKind(cursor);

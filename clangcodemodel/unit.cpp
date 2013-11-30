@@ -95,8 +95,10 @@ UnitData::UnitData(const QString &fileName)
 UnitData::~UnitData()
 {
     unload();
-    clang_disposeIndex(m_index);
-    m_index = 0;
+    if (m_index) {
+        clang_disposeIndex(m_index);
+        m_index = 0;
+    }
 }
 
 void UnitData::swap(UnitData *other)

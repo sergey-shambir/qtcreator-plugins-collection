@@ -104,7 +104,7 @@ QStringList formattedDiagnostics(const Unit &unit)
 
     const unsigned count = unit.getNumDiagnostics();
     for (unsigned i = 0; i < count; ++i) {
-        CXDiagnostic diag = unit.getDiagnostic(i);
+        ScopedCXDiagnostic diag(unit.getDiagnostic(i));
 
         unsigned opt = CXDiagnostic_DisplaySourceLocation
                 | CXDiagnostic_DisplayColumn
@@ -114,7 +114,6 @@ QStringList formattedDiagnostics(const Unit &unit)
                 | CXDiagnostic_DisplayCategoryName
                 ;
         diags << getQString(clang_formatDiagnostic(diag, opt));
-        clang_disposeDiagnostic(diag);
     }
 
     return diags;
