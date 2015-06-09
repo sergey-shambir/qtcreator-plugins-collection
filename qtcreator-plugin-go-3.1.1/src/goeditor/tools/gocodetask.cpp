@@ -1,4 +1,5 @@
 #include "gocodetask.h"
+#include <coreplugin/messagemanager.h>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -7,16 +8,17 @@
 #include <QFileInfo>
 #include <QDir>
 
-#include <QDebug>
-
-static const char ERROR_TIMEOUT_EXCEEED[] = "Go lang code completion failed, daemon waiting timeout exceed.";
-static const char ERROR_DAEMON_STOPPED[] = "Go lang code completion failed, daemon process returned non-zero code, see error string and stderr:";
-static const char ERROR_VIM_PARSING_FAILED[] = "Go lang code completion failed, we cannot parse VIM-style response. JSON error:";
-static const char ERROR_JSON_PARSING_FAILED[] = "Go lang code completion failed, we cannot parse JSON response. JSON error:";
-static const char ERROR_JSON_INCORRECT[] = "Go lang code completion failed, incorrect VIM-style JSON responce.";
-static const char WARN_UNKNOWN_CLASS[] = "Go lang code completion warning: unknown completion class found,";
-static const char WARN_UNKNOWN_FORMAT[] = "Go lang highlighting warning: unknown range format found,";
+static QLatin1String ERROR_TIMEOUT_EXCEEED("GoEditor: code completion failed, daemon waiting timeout exceed.");
+static QLatin1String ERROR_DAEMON_STOPPED("GoEditor: code completion failed with non-zero return code, see error and stderr: %1; %2");
+static QLatin1String ERROR_VIM_PARSING_FAILED("GoEditor: code completion failed, cannot parse VIM-style response. JSON error: %1");
+static QLatin1String ERROR_JSON_PARSING_FAILED("GoEditor: code completion failed, cannot parse JSON response. JSON error: %1");
+static QLatin1String ERROR_JSON_INCORRECT("GoEditor: code completion failed, incorrect VIM-style JSON responce.");
+static QLatin1String WARN_PANIC_CLASS("GoEditor: panic() in gocode occured");
+static QLatin1String WARN_UNKNOWN_CLASS("GoEditor: found unknown completion class ");
+static QLatin1String WARN_UNKNOWN_FORMAT("GoEditor: found unknown highlight range format ");
+static QLatin1String PANIC_COMPLETION_CLASS("PANIC");
 static const char GOCODE_COMMAND[] = "gocode";
+static const char GOSEMKI_COMMAND[] = "gosemki";
 static const int COMPLETION_WAIT_TIME_MSEC = 3000;
 
 namespace GoEditor {
@@ -50,25 +52,12 @@ QList<CodeCompletion> GocodeTask::codeCompleteAt(quint64 offset)
     arguments << QFileInfo(m_filePath).fileName();
     arguments << QString::number(offset);
 
-    QProcess gocode;
-    gocode.setWorkingDirectory(QFileInfo(m_filePath).dir().absolutePath());
-    gocode.start(QString::fromUtf8(GOCODE_COMMAND), arguments);
-    if (m_isInMemory) {
-        gocode.write(m_fileContent);
-        gocode.closeWriteChannel();
-    }
-    if (!gocode.waitForFinished(COMPLETION_WAIT_TIME_MSEC)) {
-        qDebug() << ERROR_TIMEOUT_EXCEEED;
-        return QList<CodeCompletion>();
-    }
-    if (gocode.exitCode() != 0) {
-        qDebug() << ERROR_DAEMON_STOPPED << gocode.errorString() << gocode.readAllStandardError();
-        return QList<CodeCompletion>();
-    }
-    parseJsonCompletionFormat(gocode.readAllStandardOutput());
-
     QList<CodeCompletion> ret;
-    ret.swap(m_completions);
+    QByteArray response;
+    if (runGocode(arguments, response)) {
+        parseJsonCompletionFormat(response);
+        ret.swap(m_completions);
+    }
     return ret;
 }
 
@@ -81,25 +70,12 @@ QList<HighlightRange> GocodeTask::highlight()
     arguments << QLatin1String("highlight");
     arguments << QFileInfo(m_filePath).fileName();
 
-    QProcess gocode;
-    gocode.setWorkingDirectory(QFileInfo(m_filePath).dir().absolutePath());
-    gocode.start(QString::fromUtf8(GOCODE_COMMAND), arguments);
-    if (m_isInMemory) {
-        gocode.write(m_fileContent);
-        gocode.closeWriteChannel();
-    }
-    if (!gocode.waitForFinished(COMPLETION_WAIT_TIME_MSEC)) {
-        qDebug() << ERROR_TIMEOUT_EXCEEED;
-        return QList<HighlightRange>();
-    }
-    if (gocode.exitCode() != 0) {
-        qDebug() << ERROR_DAEMON_STOPPED << gocode.errorString() << gocode.readAllStandardError();
-        return QList<HighlightRange>();
-    }
-    parseJsonHighlightFormat(gocode.readAllStandardOutput());
-
     QList<HighlightRange> ret;
-    ret.swap(m_ranges);
+    QByteArray response;
+    if (runGocode(arguments, response)) {
+        parseJsonHighlightFormat(response);
+        ret.swap(m_ranges);
+    }
     return ret;
 }
 
@@ -127,7 +103,7 @@ void GocodeTask::parseVimFormat(const QByteArray &response)
     QJsonParseError error;
     QJsonDocument doc = QJsonDocument::fromJson(response, &error);
     if (error.error != QJsonParseError::NoError) {
-        qDebug() << ERROR_VIM_PARSING_FAILED << error.errorString() << response;
+        reportError(QString(ERROR_VIM_PARSING_FAILED).arg(error.errorString()));
         return;
     }
     QJsonArray items = doc.array();
@@ -153,7 +129,7 @@ void GocodeTask::parseJsonHighlightFormat(const QByteArray &response)
     QJsonParseError error;
     QJsonDocument doc = QJsonDocument::fromJson(response, &error);
     if (error.error != QJsonParseError::NoError) {
-        qDebug() << ERROR_JSON_PARSING_FAILED << error.errorString() << response;
+        reportError(QString(ERROR_JSON_PARSING_FAILED).arg(error.errorString()));
         return;
     }
     QJsonArray items = doc.array();
@@ -176,7 +152,7 @@ void GocodeTask::parseJsonCompletionFormat(const QByteArray &response)
     QJsonParseError error;
     QJsonDocument doc = QJsonDocument::fromJson(response, &error);
     if (error.error != QJsonParseError::NoError) {
-        qDebug() << ERROR_JSON_PARSING_FAILED << error.errorString() << response;
+        reportError(QString(ERROR_JSON_PARSING_FAILED).arg(error.errorString()));
         return;
     }
     QJsonArray items = doc.array();
@@ -201,11 +177,38 @@ void GocodeTask::parseJsonCompletionFormat(const QByteArray &response)
     }
 }
 
+void GocodeTask::reportError(const QString &text) const
+{
+    Core::MessageManager::write(text);
+}
+
+bool GocodeTask::runGocode(const QStringList &arguments, QByteArray &response)
+{
+    QProcess gocode;
+    gocode.setWorkingDirectory(QFileInfo(m_filePath).dir().absolutePath());
+    gocode.start(QString::fromUtf8(GOCODE_COMMAND), arguments);
+    if (m_isInMemory) {
+        gocode.write(m_fileContent);
+        gocode.closeWriteChannel();
+    }
+    if (!gocode.waitForFinished(COMPLETION_WAIT_TIME_MSEC)) {
+        reportError(ERROR_TIMEOUT_EXCEEED);
+        return false;
+    }
+    if (gocode.exitCode() != 0) {
+        reportError(QString(ERROR_DAEMON_STOPPED).arg(gocode.errorString(),
+                                                      QString::fromUtf8(gocode.readAllStandardError())));
+        return false;
+    }
+    response = gocode.readAllStandardOutput();
+    return true;
+}
+
 HighlightRange::Format GocodeTask::formatFromString(const QString &string) const
 {
-    QMap<QString, HighlightRange::Format>::const_iterator it = m_formatsMap.find(string);
+    auto it = m_formatsMap.find(string);
     if (it == m_formatsMap.end()) {
-        qDebug() << WARN_UNKNOWN_FORMAT << string;
+        reportError(WARN_UNKNOWN_CLASS + string);
         return HighlightRange::Other;
     }
     return it.value();
@@ -213,9 +216,13 @@ HighlightRange::Format GocodeTask::formatFromString(const QString &string) const
 
 CodeCompletion::Kind GocodeTask::kindFromString(const QString &string) const
 {
-    QMap<QString, CodeCompletion::Kind>::const_iterator it = m_kindsMap.find(string);
+    auto it = m_kindsMap.find(string);
     if (it == m_kindsMap.end()) {
-        qDebug() << WARN_UNKNOWN_CLASS << string;
+        if (string == PANIC_COMPLETION_CLASS) {
+            reportError(WARN_PANIC_CLASS);
+        } else {
+            reportError(WARN_UNKNOWN_CLASS + string);
+        }
         return CodeCompletion::Other;
     }
     return it.value();

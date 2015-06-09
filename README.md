@@ -1,20 +1,39 @@
 qtcreator-plugins-collection
 ============================
 
-Collection of plugins adapted to the latest stable QtCreator.
+Collection of plugins adapted for the QtCreator 3.1 from Ubuntu Trusty. Should be compatible with version from <a href="https://launchpad.net/~ubuntu-sdk-team/+archive/ppa">ubuntu sdk ppa</a>.
 
-Current version - 2.7 beta from Ubuntu Raring. Should be compatible with version from <a href="https://launchpad.net/~ubuntu-sdk-team/+archive/ppa">ubuntu sdk ppa</a>.
+## GoLang
+This plugin provided by Canonical, Ltd. under LGPL license. It contains additional patches to allow development of non-QML Go projects.
 
-## ClangCodeModel
+License: LGPL + Qt exception
+
+## GoEditor
+Allows\ editor with code completion (based on gocode).
+
+Author: Sergey Shambir.
+
+License: MIT
+
+## ClangCodeModel (outdated)
 Enables clang parser for code completion, errors displaying and highlighting. Known issue: memory leaks on editing, memory consumption can grown 3-6 times.
 
 Author: Erik Verbruggen, Digia plc.
 
 See also http://qt-project.org/wiki/Branches
 
-## VCProjectManager
-Allows to open Visual Studio 2005-2008 project files. Unfortunately, it cannot edit project settings.
+## VCProjectManager (outdated)
+Allows to open Visual Studio 2005-2008 project files in readonly mode.
 
 Authors: Radovan Zivkovic, Bojan Petrovic
 
 See also https://codereview.qt-project.org/#q,status:merged+project:qt-creator/qt-creator+branch:wip/vcproj,n,z
+
+License: LGPL + Qt exception
+
+## XCodeProjectManager
+Allows to open XCode project files in readonly mode.
+
+Author: Sergey Shambir.
+
+License: MIT

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wizard version="1" kind="project" firstpage="10" id="S.Qml Go (GoProject)'" category="F.QtApplications"
+        platformIndependent="true" 
+        class="goapp-project"
+        featuresRequired="GoLang.GoSupport">
+    <icon>gopher.png</icon>
+    <description>Creates a plain Go project using the Qt library.</description>
+    <displayname>QML Go Project</displayname>
+    <displaycategory>Applications</displaycategory>
+    <files>
+        <file source="main.go" target="src/%ProjectName%/main.go" openeditor="false"/>
+	<file source="main.qml" target="share/%ProjectName%/main.qml" openeditor="true"/>
+	<file source="particle.png" target="share/%ProjectName%/png/particle.png" openeditor="false" binary="true"/>
+        <file source="project.goproject" target="%ProjectName%.goproject" openproject="true"/>
+    </files>
+</wizard>

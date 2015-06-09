@@ -61,6 +61,8 @@ private:
     void parseVimFormat(const QByteArray &response);
     void parseJsonHighlightFormat(const QByteArray &response);
     void parseJsonCompletionFormat(const QByteArray &response);
+    void reportError(const QString &text) const;
+    bool runGocode(const QStringList &arguments, QByteArray &response);
 
     HighlightRange::Format formatFromString(const QString &string) const;
     CodeCompletion::Kind kindFromString(const QString &string) const;

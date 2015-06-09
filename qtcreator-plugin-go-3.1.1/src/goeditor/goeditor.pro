@@ -1,3 +1,5 @@
+include(../plugin.pri)
+
 DEFINES += GOEDITOR_LIBRARY
 CONFIG += c++11
 
@@ -12,7 +14,6 @@ SOURCES += goeditorplugin.cpp \
     tools/goindenter.cpp \
     tools/lexical/goscanner.cpp \
     tools/gocompletionassist.cpp \
-    tools/goautocompleter.cpp \
     tools/highlighttask.cpp
 
 HEADERS += goeditorplugin.h \
@@ -26,25 +27,8 @@ HEADERS += goeditorplugin.h \
     tools/goindenter.h \
     tools/lexical/goscanner.h \
     tools/gocompletionassist.h \
-    tools/goautocompleter.h \
     tools/lexical/sourcecodestream.h \
     tools/highlighttask.h
-
-# Qt Creator linking
-
-## uncomment to build plugin into user config directory
-## <localappdata>/plugins/<ideversion>
-##    where <localappdata> is e.g.
-##    "%LOCALAPPDATA%\QtProject\qtcreator" on Windows Vista and later
-##    "$XDG_DATA_HOME/data/QtProject/qtcreator" or "~/.local/share/data/QtProject/qtcreator" on Linux
-##    "~/Library/Application Support/QtProject/Qt Creator" on Mac
-USE_USER_DESTDIR = yes
-
-PROVIDER = QtProject
-
-LIBS += -L"/usr/lib/x86_64-linux-gnu/qtcreator/" -L"/usr/lib/x86_64-linux-gnu/qtcreator/plugins/QtProject"
-
-include(/usr/src/qtcreator/src/qtcreatorplugin.pri)
 
 RESOURCES += \
     goeditorplugin.qrc

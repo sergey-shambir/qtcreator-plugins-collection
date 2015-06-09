@@ -1,0 +1,29 @@
+#!/usr/bin/make -f
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+export CFLAGS := $(shell dpkg-buildflags --get CFLAGS) $(shell dpkg-buildflags --get CPPFLAGS)
+export CXXFLAGS := $(shell dpkg-buildflags --get CXXFLAGS) $(shell dpkg-buildflags --get CPPFLAGS)
+export LDFLAGS := $(shell dpkg-buildflags --get LDFLAGS) -Wl,--as-needed
+export QT_SELECT := qt5
+
+DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+
+# -----------------------------------
+
+%:
+	dh $@ --fail-missing
+
+override_dh_auto_configure:
+	mkdir -p builddir
+	dh_auto_configure -- IDE_LIBRARY_BASENAME=lib/$(DEB_HOST_MULTIARCH) 
+
+override_dh_auto_install:
+	mkdir -p $(CURDIR)/debian/tmp/usr/bin
+	cp -r $(CURDIR)/share $(CURDIR)/debian/tmp/usr
+	dh_auto_install --destdir=debian/tmp/usr
+
+override_dh_shlibdeps:
+	dh_shlibdeps -l/usr/lib/$(DEB_HOST_MULTIARCH)/qtcreator:/usr/lib/$(DEB_HOST_MULTIARCH)/qtcreator/plugins/QtProject
+

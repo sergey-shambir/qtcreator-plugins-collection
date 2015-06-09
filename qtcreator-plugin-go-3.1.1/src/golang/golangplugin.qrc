@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/goproject">
+        <file>GoProjectManager.mimetypes.xml</file>
+    </qresource>
+</RCC>

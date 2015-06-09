@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
+  <mime-type type="application/x-goproject">
+    <sub-class-of type="application/x-qml"/>
+    <comment>Go Project file</comment>
+    <glob pattern="*.goproject"/>
+  </mime-type>
+</mime-info>

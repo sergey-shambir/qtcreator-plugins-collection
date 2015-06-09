@@ -1,0 +1,56 @@
+qtcreator-plugin-go (3.1.1+14.10.20140616-0ubuntu1~0trusty1~0test1) trusty; urgency=medium
+
+  * Trusty backport 
+
+ -- Zoltán Balogh <zoltan@bakter.hu>  Thu, 03 Jul 2014 16:16:36 +0300
+
+qtcreator-plugin-go (3.1.1+14.10.20140616-0ubuntu1) utopic; urgency=medium
+
+  [ Benjamin Zeller ]
+  * Migrating to Qt5.3 and QtC 3.1
+
+  [ Ubuntu daily release ]
+  * New rebuild forced
+
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Mon, 16 Jun 2014 10:31:26 +0000
+
+qtcreator-plugin-go (3.0.1+14.10.20140521.1-0ubuntu1) utopic; urgency=low
+
+  [ Benjamin Zeller ]
+  * fix running go get for multiple packages
+
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Wed, 21 May 2014 11:55:16 +0000
+
+qtcreator-plugin-go (3.0.1+14.10.20140520-0ubuntu1) utopic; urgency=low
+
+  [ Benjamin Zeller ]
+  * Automatically set a Go toolchain in a Kit if a compatible one is
+    available
+
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Tue, 20 May 2014 10:20:38 +0000
+
+qtcreator-plugin-go (3.0.1+14.10.20140514-0ubuntu1) utopic; urgency=medium
+
+  [ Zeller Benjamin]
+  * Fix creation of buildsteps for a project
+  * Make use of the target setup page
+  * New project wizard for go projects
+  * Run configurations so projects can be run and debugged
+  * Build support of Go projects
+  * Download Go packages automatically
+  * Project loading
+  * System go toolchain is registered and can be added to a kit
+
+  [ Zoltán Balogh ]
+  * Initial packaging 
+
+  [ Benjamin Zeller ]
+  * Initial import: Project loading works. System go toolchain is
+    registered and can be added to a kit. BuildConfigurations are
+    created but not yet functional.
+  * Go project finally builds. Go packages are automatically downloaded.
+  * [ Benjamin Zeller ] Use target setup page. Project wizard for go
+    projects. Adding run configurations so projects can be run and
+    debugged. [ Zoltan Balogh ] debian packaging.
+
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Wed, 14 May 2014 12:55:46 +0000

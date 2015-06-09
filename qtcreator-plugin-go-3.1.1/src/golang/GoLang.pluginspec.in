@@ -1,0 +1,10 @@
+<plugin name=\"GoLang\" version=\"0.0.1\" compatVersion=\"0.0.1\">
+    <vendor>Canonical</vendor>
+    <copyright>(C) Canonical Ltd.</copyright>
+    <license>Put your license text here</license>
+    <description>This plugin provides support for the Go programming language in QtCreator</description>
+    <category>Golang</category>
+    <url>http://www.mycompany.com</url>
+    $$dependencyList
+</plugin>
+

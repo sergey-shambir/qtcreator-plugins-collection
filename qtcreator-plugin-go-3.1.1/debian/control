@@ -1,0 +1,29 @@
+Source: qtcreator-plugin-go
+Section: devel
+Priority: optional
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Build-Depends: debhelper (>= 9),
+               qt5-qmake (>= 5.2.0~),
+               qtcreator-dev (>= 3.1),
+               qttools5-dev-tools (>= 5.2.0~),
+               qtbase5-private-dev (>= 5.2.0~),
+               qtxmlpatterns5-dev-tools,
+Standards-Version: 3.9.5
+Homepage: https://launchpad.net/qtcreator-plugin-go
+# If you aren't a member of ~ubuntu-sdk-team but need to upload packaging changes,
+# just go ahead. ~ubuntu-sdk-team will notice and sync up the code again.
+Vcs-Bzr: https://code.launchpad.net/~ubuntu-sdk-team/qtcreator-plugin-go/trunk
+
+Package: qtcreator-plugin-go
+Architecture: any
+Multi-Arch: same
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+Replaces: qtcreator (<= 3.0.1-0ubuntu3)
+Breaks: qtcreator (<= 3.0.1-0ubuntu3)
+Description: Go plugin for Qt Creator IDE
+ Qt Creator is a new, lightweight, cross-platform integrated development
+ environment (IDE) designed to make development with the Qt application
+ framework even faster and easier.
+ .
+ This package contains the Go plugin for Qt Creator.
