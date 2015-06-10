@@ -40,7 +40,7 @@ QT_END_NAMESPACE
 
 namespace GoLang {
 
-class ToolChain;
+namespace Internal { class GoToolChain; }
 
 // --------------------------------------------------------------------------
 // ToolChainConfigWidget
@@ -51,9 +51,9 @@ class ToolChainConfigWidget : public QWidget
     Q_OBJECT
 
 public:
-    ToolChainConfigWidget(GoLang::ToolChain *);
+    ToolChainConfigWidget(Internal::GoToolChain *);
 
-    GoLang::ToolChain *toolChain() const;
+    Internal::GoToolChain *toolChain() const;
 
     void apply();
     void discard();
@@ -68,17 +68,14 @@ protected slots:
     void clearErrorMessage();
 
 protected:
-    virtual void applyImpl() ;
-    virtual void discardImpl();
-    virtual bool isDirtyImpl() const;
-    virtual void makeReadOnlyImpl();
-
     void addErrorLabel();
-    QFormLayout *m_mainLayout;
-    QLineEdit *m_nameLineEdit;
 
 private:
-    ToolChain *m_toolChain;
+    QFormLayout *m_mainLayout;
+    QLineEdit *m_nameLineEdit;
+    QLineEdit *m_compilerPathLineEdit;
+    QLineEdit *m_goRootEdit;
+    Internal::GoToolChain *m_toolChain;
     QLabel *m_errorLabel;
 };
 

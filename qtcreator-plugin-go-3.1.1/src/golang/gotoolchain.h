@@ -10,6 +10,7 @@ class GoToolChain : public ToolChain
 {
 public:
     GoToolChain(ToolChain::Detection detect);
+    ~GoToolChain();
 
     void setCompilerCommand(const Utils::FileName &path, const Utils::FileName &goRoot);
     QString version() const;

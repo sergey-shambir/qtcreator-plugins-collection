@@ -305,10 +305,10 @@ void ToolChainModel::apply()
             removedTcs << n->toolChain->displayName();
     }
     //
-    foreach (ToolChainNode *n, m_toAddList) {
-        markForRemoval(n->toolChain);
-    }
-    qDeleteAll(m_toAddList);
+//    foreach (ToolChainNode *n, m_toAddList) {
+//        markForRemoval(n->toolChain);
+//    }
+//    qDeleteAll(m_toAddList);
 
     if (removedTcs.count() == 1) {
         QMessageBox::warning(0,

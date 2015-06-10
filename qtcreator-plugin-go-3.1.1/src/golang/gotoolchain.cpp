@@ -189,6 +189,11 @@ GoToolChain::GoToolChain(Detection detect)
 
 }
 
+GoToolChain::~GoToolChain()
+{
+
+}
+
 GoToolChain::GoToolChain(const GoToolChain &other)
     : ToolChain(other),
       m_compilerCommand(other.m_compilerCommand),
@@ -259,9 +264,10 @@ QList<ProjectExplorer::HeaderPath> GoToolChain::systemGoPaths() const
 void GoToolChain::addToEnvironment(Utils::Environment &env) const
 {
     addCommandPathToEnvironment(m_compilerCommand,env);
-    env.set(QStringLiteral("GOROOT"),goRoot().toString());
-    env.set(QStringLiteral("GOOS"),QStringLiteral("linux"));
-    env.set(QStringLiteral("GOARCH"),toString(m_targetAbi.architecture(),m_targetAbi.wordWidth()));
+    env.set(QStringLiteral("GOROOT"), goRoot().toString());
+    env.set(QStringLiteral("GOOS"), QStringLiteral("linux"));
+    if (m_targetAbi.architecture() != ProjectExplorer::Abi::UnknownArchitecture)
+        env.set(QStringLiteral("GOARCH"), toString(m_targetAbi.architecture(), m_targetAbi.wordWidth()));
 }
 
 Utils::FileName GoToolChain::compilerCommand() const

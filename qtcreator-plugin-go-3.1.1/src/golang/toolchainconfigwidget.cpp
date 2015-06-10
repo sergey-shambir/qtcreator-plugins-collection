@@ -28,9 +28,10 @@
 ****************************************************************************/
 
 #include "toolchainconfigwidget.h"
-#include "toolchain.h"
+#include "gotoolchain.h"
 
 #include <utils/qtcassert.h>
+#include <utils/fileutils.h>
 
 #include <QString>
 
@@ -40,37 +41,50 @@
 
 namespace GoLang {
 
-ToolChainConfigWidget::ToolChainConfigWidget(ToolChain *tc) :
-    m_toolChain(tc), m_errorLabel(0)
+ToolChainConfigWidget::ToolChainConfigWidget(Internal::GoToolChain *tc) :
+    m_mainLayout(0),
+    m_nameLineEdit(0),
+    m_compilerPathLineEdit(0),
+    m_goRootEdit(0),
+    m_toolChain(tc),
+    m_errorLabel(0)
 {
     QTC_CHECK(tc);
     m_nameLineEdit = new QLineEdit(this);
-    m_nameLineEdit->setText(tc->displayName());
+    m_compilerPathLineEdit = new QLineEdit(this);
+    m_goRootEdit = new QLineEdit(this);
     m_mainLayout = new QFormLayout(this);
     m_mainLayout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow); // for the Macs...
     m_mainLayout->addRow(tr("Name:"), m_nameLineEdit);
+    m_mainLayout->addRow(tr("Compiler:"), m_compilerPathLineEdit);
+    m_mainLayout->addRow(tr("Go root directory:"), m_goRootEdit);
 
+    discard();
     connect(m_nameLineEdit, SIGNAL(textChanged(QString)), SIGNAL(dirty()));
+    connect(m_compilerPathLineEdit, SIGNAL(textChanged(QString)), SIGNAL(dirty()));
+    connect(m_goRootEdit, SIGNAL(textChanged(QString)), SIGNAL(dirty()));
 }
 
 void ToolChainConfigWidget::apply()
 {
     m_toolChain->setDisplayName(m_nameLineEdit->text());
-    applyImpl();
+    m_toolChain->setCompilerCommand(Utils::FileName::fromUserInput(m_compilerPathLineEdit->text()),
+                                    Utils::FileName::fromUserInput(m_goRootEdit->text()));
 }
 
 void ToolChainConfigWidget::discard()
 {
     m_nameLineEdit->setText(m_toolChain->displayName());
-    discardImpl();
+    m_compilerPathLineEdit->setText(m_toolChain->compilerCommand().toUserOutput());
+    m_goRootEdit->setText(m_toolChain->goRoot().toUserOutput());
 }
 
 bool ToolChainConfigWidget::isDirty() const
 {
-    return m_nameLineEdit->text() != m_toolChain->displayName() || isDirtyImpl();
+    return m_nameLineEdit->text() != m_toolChain->displayName();
 }
 
-ToolChain *ToolChainConfigWidget::toolChain() const
+Internal::GoToolChain *ToolChainConfigWidget::toolChain() const
 {
     return m_toolChain;
 }
@@ -78,7 +92,8 @@ ToolChain *ToolChainConfigWidget::toolChain() const
 void ToolChainConfigWidget::makeReadOnly()
 {
     m_nameLineEdit->setEnabled(false);
-    makeReadOnlyImpl();
+    m_compilerPathLineEdit->setEnabled(false);
+    m_goRootEdit->setEnabled(false);
 }
 
 void ToolChainConfigWidget::addErrorLabel()
@@ -108,26 +123,6 @@ void ToolChainConfigWidget::clearErrorMessage()
     m_errorLabel->clear();
     m_errorLabel->setStyleSheet(QString());
     m_errorLabel->setVisible(false);
-}
-
-void ToolChainConfigWidget::applyImpl()
-{
-
-}
-
-void ToolChainConfigWidget::discardImpl()
-{
-
-}
-
-bool ToolChainConfigWidget::isDirtyImpl() const
-{
-    return false;
-}
-
-void ToolChainConfigWidget::makeReadOnlyImpl()
-{
-
 }
 
 } // namespace GoLang
