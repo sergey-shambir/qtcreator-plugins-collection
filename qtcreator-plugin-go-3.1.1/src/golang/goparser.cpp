@@ -12,7 +12,7 @@ using ProjectExplorer::Task;
 
 GoParser::GoParser()
 {
-    m_regexpError.setPattern(QLatin1String("^([^:]+):([\\d]+):[\\d]+:"));
+    m_regexpError.setPattern(QLatin1String("^([^:]+):([\\d]+):"));
     m_regexpError.setMinimal(true);
     QTC_CHECK(m_regexpError.isValid());
 }
