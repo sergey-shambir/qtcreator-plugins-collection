@@ -653,8 +653,8 @@ void GoBuildStep::setOutputParser(ProjectExplorer::IOutputParser *parser)
     if (m_outputParserChain) {
         connect(m_outputParserChain, SIGNAL(addOutput(QString,ProjectExplorer::BuildStep::OutputFormat)),
                 this, SLOT(outputAdded(QString,ProjectExplorer::BuildStep::OutputFormat)));
-        //connect(m_outputParserChain, SIGNAL(addTask(ProjectExplorer::Task)),
-        //        this, SLOT(taskAdded(ProjectExplorer::Task)));
+        connect(m_outputParserChain, SIGNAL(addTask(ProjectExplorer::Task)),
+                this, SIGNAL(addTask(ProjectExplorer::Task)));
     }
 }
 

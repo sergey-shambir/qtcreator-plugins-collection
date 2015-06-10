@@ -23,7 +23,8 @@ SOURCES += \
     gokitinformation.cpp \
     gorunconfigurationfactory.cpp \
     gorunconfiguration.cpp \
-    goapplicationwizard.cpp
+    goapplicationwizard.cpp \
+    goparser.cpp
 
 HEADERS += \
     golangplugin.h \
@@ -45,7 +46,8 @@ HEADERS += \
     gokitinformation.h \
     gorunconfigurationfactory.h \
     gorunconfiguration.h \
-    goapplicationwizard.h
+    goapplicationwizard.h \
+    goparser.h
 
 RESOURCES += \
     golangplugin.qrc

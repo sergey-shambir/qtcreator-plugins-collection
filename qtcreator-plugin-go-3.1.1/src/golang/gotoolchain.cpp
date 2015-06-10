@@ -1,6 +1,7 @@
 #include "gotoolchain.h"
 #include "golangconstants.h"
 #include "toolchainconfigwidget.h"
+#include "goparser.h"
 
 #include <utils/synchronousprocess.h>
 #include <utils/fileutils.h>
@@ -291,7 +292,7 @@ Utils::FileName GoToolChain::goRoot() const
 
 ProjectExplorer::IOutputParser *GoToolChain::outputParser() const
 {
-    return 0;
+    return new GoParser;
 }
 
 ToolChainConfigWidget *GoToolChain::configurationWidget()
