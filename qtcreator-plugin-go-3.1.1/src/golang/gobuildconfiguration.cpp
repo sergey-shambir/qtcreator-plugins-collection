@@ -525,7 +525,6 @@ void GoBuildStep::startNextStep()
             }
 
             if(!packages.size()) {
-                m_state = GoGet;
                 startNextStep();
                 return;
             }
@@ -547,7 +546,7 @@ void GoBuildStep::startNextStep()
             m_state = GoBuild;
 
             //only care about the last process output when not in clean mode
-            if(!m_clean && !processSucceeded()) {
+            if(!m_clean && m_process && !processSucceeded()) {
                 handleFinished(false);
                 return;
             }
