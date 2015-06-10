@@ -9,7 +9,7 @@ This plugin provided by Canonical, Ltd. under LGPL license. It contains addition
 License: LGPL + Qt exception
 
 ## GoEditor
-Allows\ editor with code completion (based on gocode).
+Provides editor with code completion for Golang (code completion needs /usr/bin/gocode).
 
 Author: Sergey Shambir.
 
@@ -31,7 +31,7 @@ See also https://codereview.qt-project.org/#q,status:merged+project:qt-creator/q
 
 License: LGPL + Qt exception
 
-## XCodeProjectManager
+## XCodeProjectManager (outdated)
 Allows to open XCode project files in readonly mode.
 
 Author: Sergey Shambir.
