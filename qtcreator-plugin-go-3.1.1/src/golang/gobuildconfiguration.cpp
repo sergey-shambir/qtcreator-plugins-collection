@@ -20,6 +20,7 @@
 #include <utils/qtcprocess.h>
 #include <utils/osspecificaspects.h>
 #include <coreplugin/mimedatabase.h>
+#include <memory>
 
 namespace GoLang {
 
@@ -367,8 +368,7 @@ bool GoBuildStep::init()
 
     }
 
-    ProjectExplorer::IOutputParser *parser = target()->kit()->createOutputParser();
-    if (parser)
+    if (ProjectExplorer::IOutputParser *parser = target()->kit()->createOutputParser())
         setOutputParser(parser);
 
     return true;
@@ -744,7 +744,7 @@ ProjectExplorer::BuildStep *GoBuildStepFactory::create(ProjectExplorer::BuildSte
 
 bool GoBuildStepFactory::canRestore(ProjectExplorer::BuildStepList *parent, const QVariantMap &map) const
 {
-    if(!canHandle(parent->target()))
+    if (!canHandle(parent->target()))
         return false;
     return ProjectExplorer::idFromMap(map) == Core::Id(Constants::GO_GOSTEP_ID);
 }
@@ -752,14 +752,13 @@ bool GoBuildStepFactory::canRestore(ProjectExplorer::BuildStepList *parent, cons
 ProjectExplorer::BuildStep *GoBuildStepFactory::restore(ProjectExplorer::BuildStepList *parent, const QVariantMap &map)
 {
     if (!canRestore(parent, map))
-        return 0;
+        return nullptr;
 
-    ProjectExplorer::BuildStep* step = new GoBuildStep(parent);
-    if(step->fromMap(map))
-        return step;
+    std::unique_ptr<GoBuildStep> step(new GoBuildStep(parent));
+    if (!step->fromMap(map))
+        step.reset();
 
-    delete step;
-    return 0;
+    return step.release();
 }
 
 bool GoBuildStepFactory::canClone(ProjectExplorer::BuildStepList *parent, ProjectExplorer::BuildStep *product) const
@@ -770,12 +769,12 @@ bool GoBuildStepFactory::canClone(ProjectExplorer::BuildStepList *parent, Projec
 ProjectExplorer::BuildStep *GoBuildStepFactory::clone(ProjectExplorer::BuildStepList *parent, ProjectExplorer::BuildStep *product)
 {
     if (!canClone(parent, product))
-        return 0;
+        return nullptr;
 
     if(product->id() == Core::Id(Constants::GO_GOSTEP_ID))
         return new GoBuildStep(parent,static_cast<GoBuildStep *>(product));
 
-    QTC_ASSERT(false,return 0);
+    QTC_ASSERT(false,return nullptr);
 }
 
 } // namespace GoLang
