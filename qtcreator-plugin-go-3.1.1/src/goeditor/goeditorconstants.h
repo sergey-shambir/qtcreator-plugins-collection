@@ -1,5 +1,4 @@
-#ifndef GOEDITORCONSTANTS_H
-#define GOEDITORCONSTANTS_H
+#pragma once
 
 namespace GoEditor {
 namespace Constants {
@@ -14,6 +13,4 @@ const char C_GO_MIME_ICON[] = "text-x-go";
 
 } // namespace GoEditor
 } // namespace Constants
-
-#endif // GOEDITORCONSTANTS_H
 

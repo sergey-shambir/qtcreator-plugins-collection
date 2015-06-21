@@ -69,6 +69,7 @@ private:
 
     bool m_isInMemory;
     QString m_filePath;
+    QString m_command;
     QByteArray m_fileContent;
     QList<CodeCompletion> m_completions;
     QList<HighlightRange> m_ranges;

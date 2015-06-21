@@ -61,7 +61,7 @@ void SingleShotHighlightTask::runHelper()
         hr.length = range.length;
         results.append(hr);
     }
-    this->reportResults(results);
+    reportResults(results);
 }
 
 } // namespace Internal

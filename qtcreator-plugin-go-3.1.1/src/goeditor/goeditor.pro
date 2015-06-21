@@ -14,7 +14,8 @@ SOURCES += goeditorplugin.cpp \
     tools/goindenter.cpp \
     tools/lexical/goscanner.cpp \
     tools/gocompletionassist.cpp \
-    tools/highlighttask.cpp
+    tools/highlighttask.cpp \
+    goeditordocument.cpp
 
 HEADERS += goeditorplugin.h \
     goeditor_global.h \
@@ -28,7 +29,8 @@ HEADERS += goeditorplugin.h \
     tools/lexical/goscanner.h \
     tools/gocompletionassist.h \
     tools/lexical/sourcecodestream.h \
-    tools/highlighttask.h
+    tools/highlighttask.h \
+    goeditordocument.h
 
 RESOURCES += \
     goeditorplugin.qrc

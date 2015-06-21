@@ -26,8 +26,8 @@ QVector<TextEditor::TextStyle> initFormatCategories()
     return categories;
 }
 
-GoHighlighter::GoHighlighter(TextEditor::BaseTextDocument *parent) :
-    TextEditor::SyntaxHighlighter(parent)
+GoHighlighter::GoHighlighter(QTextDocument *document) :
+    TextEditor::SyntaxHighlighter(document)
 {
     setTextFormatCategories(initFormatCategories());
 }

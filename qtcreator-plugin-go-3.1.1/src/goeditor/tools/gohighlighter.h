@@ -10,7 +10,7 @@ class GoHighlighter : public TextEditor::SyntaxHighlighter
 {
     Q_OBJECT
 public:
-    explicit GoHighlighter(TextEditor::BaseTextDocument *parent);
+    explicit GoHighlighter(QTextDocument *document);
     ~GoHighlighter();
 
 protected:
