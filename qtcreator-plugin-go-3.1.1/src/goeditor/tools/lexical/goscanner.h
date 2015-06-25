@@ -53,7 +53,8 @@ class GoScanner
 public:
     enum State {
         State_Default = 0,
-        State_MultiLineComment
+        State_MultiLineComment,
+        State_MultiLineString
     };
 
     GoScanner(const QChar *text, const int length);
@@ -69,6 +70,7 @@ private:
 
     FormatToken readStringLiteral(QChar quoteChar);
     FormatToken readMultiLineComment();
+    FormatToken readMultiLineString();
     FormatToken readIdentifier();
     FormatToken readNumber();
     FormatToken readFloatNumber();

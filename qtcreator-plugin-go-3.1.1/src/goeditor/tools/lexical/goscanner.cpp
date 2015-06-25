@@ -48,6 +48,8 @@ FormatToken GoScanner::read()
     switch (state) {
     case State_MultiLineComment:
         return readMultiLineComment();
+    case State_MultiLineString:
+        return readMultiLineString();
     default:
         return onDefaultState();
     }
@@ -73,6 +75,12 @@ FormatToken GoScanner::onDefaultState()
 
     if (first == QLatin1Char('\'') || first == QLatin1Char('\"'))
         return readStringLiteral(first);
+
+    if (first == QLatin1Char('`')) {
+        m_src.move();
+        saveState(State_MultiLineString, QChar());
+        return readMultiLineString();
+    }
 
     if (first.isLetter() || (first == QLatin1Char('_')))
         return readIdentifier();
@@ -105,6 +113,8 @@ FormatToken GoScanner::readStringLiteral(QChar quoteChar)
 
     while (ch != quoteChar && !ch.isNull()) {
         m_src.move();
+        if (ch == QLatin1Char('\\'))
+            m_src.move();
         ch = m_src.peek();
     }
     if (ch == quoteChar)
@@ -124,8 +134,27 @@ FormatToken GoScanner::readMultiLineComment()
             break;
         if (ch == QLatin1Char('*') && (m_src.peek(1) == QLatin1Char('/'))) {
             clearState();
+            m_src.move(); // TODO: is necessary?
             m_src.move();
             m_src.move();
+            break;
+        }
+        m_src.move();
+    }
+
+    return FormatToken(Format_String, m_src.anchor(), m_src.length());
+}
+
+FormatToken GoScanner::readMultiLineString()
+{
+    for (;;) {
+        QChar ch = m_src.peek();
+        if (ch.isNull()) {
+            break;
+        }
+        if (ch == QLatin1Char('`')) {
+            clearState();
+            m_src.move(); // TODO: is necessary?
             m_src.move();
             break;
         }
