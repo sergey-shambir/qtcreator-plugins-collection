@@ -95,6 +95,7 @@ void GocodeTask::initStringMaps()
     m_formatsMap[QLatin1String("var")] = HighlightRange::Var;
     m_formatsMap[QLatin1String("con")] = HighlightRange::Const;
     m_formatsMap[QLatin1String("pkg")] = HighlightRange::Package;
+    m_formatsMap[QLatin1String("fld")] = HighlightRange::Field;
 }
 
 void GocodeTask::parseVimFormat(const QByteArray &response)

@@ -41,7 +41,7 @@ void GoEditorDocument::applyFontSettings()
     m_highlightFormatMap[HighlightRange::Type] =
             fs.toTextCharFormat(TextEditor::C_TYPE);
     m_highlightFormatMap[HighlightRange::Var] =
-            fs.toTextCharFormat(TextEditor::C_FIELD);
+            fs.toTextCharFormat(TextEditor::C_LOCAL);
     m_highlightFormatMap[HighlightRange::Field] =
             fs.toTextCharFormat(TextEditor::C_FIELD);
     m_highlightFormatMap[HighlightRange::Const] =
@@ -49,7 +49,7 @@ void GoEditorDocument::applyFontSettings()
     m_highlightFormatMap[HighlightRange::Label] =
             fs.toTextCharFormat(TextEditor::C_LABEL);
     m_highlightFormatMap[HighlightRange::Func] =
-            fs.toTextCharFormat(TextEditor::C_FUNCTION);
+            fs.toTextCharFormat(TextEditor::C_VIRTUAL_METHOD);
     m_highlightFormatMap[HighlightRange::Package] =
             fs.toTextCharFormat(TextEditor::C_STRING);
 
