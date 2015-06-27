@@ -3,6 +3,7 @@
 
 #include <texteditor/basetexteditor.h>
 #include <utils/uncommentselection.h>
+#include "tools/gosemanticinfo.h"
 
 namespace GoEditor {
 namespace Internal {
@@ -19,6 +20,9 @@ public:
 
 protected:
     TextEditor::BaseTextEditor *createEditor() override;
+
+private slots:
+    void applySemantic(const GoSemanticInfoPtr &semantic);
 
 private:
     GoEditorWidget(TextEditor::BaseTextEditorWidget *) = delete;

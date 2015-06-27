@@ -3,6 +3,7 @@
 #include "goeditorfactory.h"
 #include "goeditorwidget.h"
 #include "tools/gocompletionassist.h"
+#include "tools/gohoverhandler.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/icontext.h>
@@ -144,6 +145,7 @@ bool GoEditorPlugin::initialize(const QStringList &arguments, QString *errorStri
     addObject(m_factory);
 
     addAutoReleasedObject(new GoCompletionAssistProvider);
+    addAutoReleasedObject(new GoHoverHandler(this));
 
     m_actionHandler.reset(new TextEditor::TextEditorActionHandler(
                               this,

@@ -21,6 +21,8 @@ GoEditorDocument::GoEditorDocument()
             this, SLOT(acceptSemaHighlights(int,int)));
     connect(&m_indexerWatcher, SIGNAL(finished()),
             this, SLOT(finishSemaHighlights()));
+    connect(&m_semanticWatcher, SIGNAL(resultsReadyAt(int,int)),
+            this, SLOT(acceptSemantic(int,int)));
 
     m_semaHighlightsUpdater = new QTimer(this);
     m_semaHighlightsUpdater->setSingleShot(true);
@@ -38,19 +40,19 @@ void GoEditorDocument::applyFontSettings()
     BaseTextDocument::applyFontSettings();
 
     const TextEditor::FontSettings &fs = fontSettings();
-    m_highlightFormatMap[HighlightRange::Type] =
+    m_highlightFormatMap[GoHighlightRange::Type] =
             fs.toTextCharFormat(TextEditor::C_TYPE);
-    m_highlightFormatMap[HighlightRange::Var] =
+    m_highlightFormatMap[GoHighlightRange::Var] =
             fs.toTextCharFormat(TextEditor::C_LOCAL);
-    m_highlightFormatMap[HighlightRange::Field] =
+    m_highlightFormatMap[GoHighlightRange::Field] =
             fs.toTextCharFormat(TextEditor::C_FIELD);
-    m_highlightFormatMap[HighlightRange::Const] =
+    m_highlightFormatMap[GoHighlightRange::Const] =
             fs.toTextCharFormat(TextEditor::C_ENUMERATION);
-    m_highlightFormatMap[HighlightRange::Label] =
+    m_highlightFormatMap[GoHighlightRange::Label] =
             fs.toTextCharFormat(TextEditor::C_LABEL);
-    m_highlightFormatMap[HighlightRange::Func] =
+    m_highlightFormatMap[GoHighlightRange::Func] =
             fs.toTextCharFormat(TextEditor::C_VIRTUAL_METHOD);
-    m_highlightFormatMap[HighlightRange::Package] =
+    m_highlightFormatMap[GoHighlightRange::Package] =
             fs.toTextCharFormat(TextEditor::C_STRING);
 
     updateSemaHighlightsNow();
@@ -65,10 +67,12 @@ void GoEditorDocument::triggerPendingUpdates()
 void GoEditorDocument::updateSemaHighlightsNow()
 {
     m_indexRevision = document()->revision();
-    SingleShotHighlightTask *task = new SingleShotHighlightTask;
+    auto task = new SingleShotHighlightTask;
     task->setFilename(filePath());
     task->setText(plainText().toUtf8());
-    m_indexerWatcher.setFuture(task->start());
+    auto futures = task->start();
+    m_indexerWatcher.setFuture(futures.highlightFuture);
+    m_semanticWatcher.setFuture(futures.semanticFuture);
 }
 
 void GoEditorDocument::acceptSemaHighlights(int from, int to)
@@ -87,6 +91,16 @@ void GoEditorDocument::finishSemaHighlights()
 
     TextEditor::SemanticHighlighter::clearExtraAdditionalFormatsUntilEnd(
                 syntaxHighlighter(), m_indexerWatcher.future());
+}
+
+void GoEditorDocument::acceptSemantic(int from, int to)
+{
+    Q_UNUSED(to);
+    if (m_indexRevision != document()->revision() || m_semanticWatcher.isCanceled())
+            return; // aborted
+    GoSemanticInfoPtr sema = m_semanticWatcher.resultAt(from);
+    sema->applyCodeFolding(document());
+    emit semanticUpdated(sema);
 }
 
 } // namespace GoEditor

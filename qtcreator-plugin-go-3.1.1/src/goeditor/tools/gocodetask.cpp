@@ -16,6 +16,7 @@ static QLatin1String ERROR_JSON_PARSING_FAILED("Cannot parse JSON response. JSON
 static QLatin1String ERROR_JSON_INCORRECT("Incorrect VIM-style JSON responce.");
 static QLatin1String WARN_PANIC_CLASS("Daemon panic() happened.");
 static QLatin1String WARN_UNKNOWN_CLASS("Unknown completion class '%1'.");
+static QLatin1String WARN_UNKNOWN_OUTLINE_KIND("Unknown outline kind '%1'.");
 static QLatin1String WARN_UNKNOWN_FORMAT("Unknown highlight range format '%1'.");
 static QLatin1String PANIC_COMPLETION_CLASS("PANIC");
 static QLatin1String GOCODE_COMMAND("gocode");
@@ -63,7 +64,7 @@ QList<CodeCompletion> GocodeTask::codeCompleteAt(quint64 offset)
     return ret;
 }
 
-QList<HighlightRange> GocodeTask::highlight()
+QSharedPointer<GoSemanticInfo> GocodeTask::highlight()
 {
     m_command = GOSEMKI_COMMAND;
     QStringList arguments;
@@ -73,11 +74,12 @@ QList<HighlightRange> GocodeTask::highlight()
     if (m_isInMemory)
         arguments << QFileInfo(m_filePath).fileName();
 
-    QList<HighlightRange> ret;
+    QSharedPointer<GoSemanticInfo> ret;
     QByteArray response;
     if (runGocode(arguments, response)) {
         parseJsonHighlightFormat(response);
-        ret.swap(m_ranges);
+        m_sema->sort();
+        ret.swap(m_sema);
     }
     return ret;
 }
@@ -89,13 +91,15 @@ void GocodeTask::initStringMaps()
     m_kindsMap[QLatin1String("var")] = CodeCompletion::Variable;
     m_kindsMap[QLatin1String("type")] = CodeCompletion::Type;
     m_kindsMap[QLatin1String("const")] = CodeCompletion::Const;
-    m_formatsMap[QLatin1String("fun")] = HighlightRange::Func;
-    m_formatsMap[QLatin1String("lbl")] = HighlightRange::Label;
-    m_formatsMap[QLatin1String("typ")] = HighlightRange::Type;
-    m_formatsMap[QLatin1String("var")] = HighlightRange::Var;
-    m_formatsMap[QLatin1String("con")] = HighlightRange::Const;
-    m_formatsMap[QLatin1String("pkg")] = HighlightRange::Package;
-    m_formatsMap[QLatin1String("fld")] = HighlightRange::Field;
+    m_outlineKindsMap[QLatin1String("fun")] = GoOutlineItem::Func;
+    m_outlineKindsMap[QLatin1String("typ")] = GoOutlineItem::Struct;
+    m_formatsMap[QLatin1String("fun")] = GoHighlightRange::Func;
+    m_formatsMap[QLatin1String("lbl")] = GoHighlightRange::Label;
+    m_formatsMap[QLatin1String("typ")] = GoHighlightRange::Type;
+    m_formatsMap[QLatin1String("var")] = GoHighlightRange::Var;
+    m_formatsMap[QLatin1String("con")] = GoHighlightRange::Const;
+    m_formatsMap[QLatin1String("pkg")] = GoHighlightRange::Package;
+    m_formatsMap[QLatin1String("fld")] = GoHighlightRange::Field;
 }
 
 void GocodeTask::parseVimFormat(const QByteArray &response)
@@ -130,7 +134,15 @@ void GocodeTask::parseJsonHighlightFormat(const QByteArray &response)
     const QString KEY_COLUMN(QLatin1String("col"));
     const QString KEY_LENGTH(QLatin1String("len"));
     const QString KEY_KIND(QLatin1String("knd"));
-    m_ranges.clear();
+    const QString KEY_MESSAGE(QLatin1String("msg"));
+    const QString KEY_FROM(QLatin1String("from"));
+    const QString KEY_TO(QLatin1String("to"));
+    const QString KEY_TITLE_STRING(QLatin1String("str"));
+    const QString KEY_RANGES(QLatin1String("Ranges"));
+    const QString KEY_OUTLINE(QLatin1String("Outline"));
+    const QString KEY_ERRORS(QLatin1String("Errors"));
+    const QString KEY_FOLDS(QLatin1String("Folds"));
+    m_sema.reset(new GoSemanticInfo);
 
     QJsonParseError error;
     QJsonDocument doc = QJsonDocument::fromJson(response, &error);
@@ -139,25 +151,39 @@ void GocodeTask::parseJsonHighlightFormat(const QByteArray &response)
         return;
     }
     QJsonObject root = doc.object();
-    foreach (QJsonValue resultValue, root.value(QLatin1String("Ranges")).toArray()) {
+    foreach (QJsonValue resultValue, root.value(KEY_RANGES).toArray()) {
         QJsonObject result = resultValue.toObject();
-        QByteArray jsonStr = QJsonDocument(result).toJson();
-        qDebug() << jsonStr;
-        HighlightRange range;
-        range.format = formatFromString(result.value(QLatin1String("knd")).toString());
+        GoHighlightRange range;
+        range.format = formatFromString(result.value(KEY_KIND).toString());
         range.line = result.value(KEY_LINE).toInt();
         range.column = result.value(KEY_COLUMN).toInt();
         range.length = result.value(KEY_LENGTH).toInt();
-        m_ranges.append(range);
+        m_sema->addRange(range);
     }
-    foreach (QJsonValue resultValue, root.value(QLatin1String("Errors")).toArray()) {
+    foreach (QJsonValue value, root.value(KEY_OUTLINE).toArray()) {
+        QJsonObject result = value.toObject();
+        GoOutlineItem item;
+        item.kind = outlineKindFromString(result.value(KEY_KIND).toString());
+        item.line = result.value(KEY_LINE).toInt();
+        item.column = result.value(KEY_COLUMN).toInt();
+        item.title = result.value(KEY_TITLE_STRING).toString();
+        m_sema->addOutlineItem(item);
+    }
+    foreach (QJsonValue resultValue, root.value(KEY_ERRORS).toArray()) {
         QJsonObject result = resultValue.toObject();
-        HighlightRange range;
-        range.format = HighlightRange::Error;
-        range.line = result.value(KEY_LINE).toInt();
-        range.column = result.value(KEY_COLUMN).toInt();
-        range.length = result.value(KEY_LENGTH).toInt();
-        m_ranges.append(range);
+        GoError err;
+        err.message = result.value(KEY_MESSAGE).toString();
+        err.line = result.value(KEY_LINE).toInt();
+        err.column = result.value(KEY_COLUMN).toInt();
+        err.length = result.value(KEY_LENGTH).toInt();
+        m_sema->addError(err);
+    }
+    foreach (QJsonValue value, root.value(KEY_FOLDS).toArray()) {
+        QJsonObject result = value.toObject();
+        GoFoldArea area;
+        area.lineFrom = result.value(KEY_FROM).toInt();
+        area.lineTo = result.value(KEY_TO).toInt();
+        m_sema->addFoldArea(area);
     }
 }
 
@@ -222,12 +248,22 @@ bool GocodeTask::runGocode(const QStringList &arguments, QByteArray &response)
     return true;
 }
 
-HighlightRange::Format GocodeTask::formatFromString(const QString &string) const
+GoHighlightRange::Format GocodeTask::formatFromString(const QString &string) const
 {
     auto it = m_formatsMap.find(string);
     if (it == m_formatsMap.end()) {
-        reportError(QString(WARN_UNKNOWN_CLASS).arg(string));
-        return HighlightRange::Other;
+        reportError(QString(WARN_UNKNOWN_FORMAT).arg(string));
+        return GoHighlightRange::Other;
+    }
+    return it.value();
+}
+
+GoOutlineItem::Kind GocodeTask::outlineKindFromString(const QString &string) const
+{
+    auto it = m_outlineKindsMap.find(string);
+    if (it == m_outlineKindsMap.end()) {
+        reportError(QString(WARN_UNKNOWN_OUTLINE_KIND).arg(string));
+        return GoOutlineItem::Func;
     }
     return it.value();
 }

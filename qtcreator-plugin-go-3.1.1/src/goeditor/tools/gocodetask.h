@@ -1,6 +1,7 @@
-#ifndef GOCODETASK_H
-#define GOCODETASK_H
+#ifndef GOEDITOR_GOCODETASK_H
+#define GOEDITOR_GOCODETASK_H
 
+#include "gosemanticinfo.h"
 #include <texteditor/semantichighlighter.h>
 #include <QObject>
 #include <QRunnable>
@@ -27,25 +28,6 @@ public:
     QString hint;
 };
 
-struct HighlightRange {
-    enum Format {
-        Error,
-        Field,
-        Func,
-        Label,
-        Type,
-        Var,
-        Const,
-        Package,
-        Other
-    };
-
-    Format format;
-    int line;
-    int column;
-    int length;
-};
-
 class GocodeTask : public QObject
 {
     Q_OBJECT
@@ -54,7 +36,7 @@ public:
     GocodeTask(const QString &filePath, const QByteArray &contents);
 
     QList<CodeCompletion> codeCompleteAt(quint64 offset);
-    QList<HighlightRange> highlight();
+    QSharedPointer<GoSemanticInfo> highlight();
 
 private:
     void initStringMaps();
@@ -64,7 +46,8 @@ private:
     void reportError(const QString &text) const;
     bool runGocode(const QStringList &arguments, QByteArray &response);
 
-    HighlightRange::Format formatFromString(const QString &string) const;
+    GoHighlightRange::Format formatFromString(const QString &string) const;
+    GoOutlineItem::Kind outlineKindFromString(const QString &string) const;
     CodeCompletion::Kind kindFromString(const QString &string) const;
 
     bool m_isInMemory;
@@ -72,12 +55,13 @@ private:
     QString m_command;
     QByteArray m_fileContent;
     QList<CodeCompletion> m_completions;
-    QList<HighlightRange> m_ranges;
+    QSharedPointer<GoSemanticInfo> m_sema;
     QMap<QString, CodeCompletion::Kind> m_kindsMap;
-    QMap<QString, HighlightRange::Format> m_formatsMap;
+    QMap<QString, GoOutlineItem::Kind> m_outlineKindsMap;
+    QMap<QString, GoHighlightRange::Format> m_formatsMap;
 };
 
 } // namespace Internal
 } // namespace GoEditor
 
-#endif // GOCODETASK_H
+#endif // GOEDITOR_GOCODETASK_H

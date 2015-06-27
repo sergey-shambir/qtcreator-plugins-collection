@@ -15,7 +15,9 @@ SOURCES += goeditorplugin.cpp \
     tools/lexical/goscanner.cpp \
     tools/gocompletionassist.cpp \
     tools/highlighttask.cpp \
-    goeditordocument.cpp
+    goeditordocument.cpp \
+    tools/gosemanticinfo.cpp \
+    tools/gohoverhandler.cpp
 
 HEADERS += goeditorplugin.h \
     goeditor_global.h \
@@ -30,7 +32,9 @@ HEADERS += goeditorplugin.h \
     tools/gocompletionassist.h \
     tools/lexical/sourcecodestream.h \
     tools/highlighttask.h \
-    goeditordocument.h
+    goeditordocument.h \
+    tools/gosemanticinfo.h \
+    tools/gohoverhandler.h
 
 RESOURCES += \
     goeditorplugin.qrc

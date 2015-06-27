@@ -42,6 +42,12 @@ TextEditor::BaseTextEditor *GoEditorWidget::createEditor()
     return new GoEditor(this);
 }
 
+void GoEditorWidget::applySemantic(const GoSemanticInfoPtr &semantic)
+{
+    if (!semantic.isNull())
+        semantic->displayDiagnostic(this);
+}
+
 void GoEditorWidget::ctor()
 {
     m_commentDefinition.multiLineStart = QLatin1String("/*");
@@ -54,6 +60,8 @@ void GoEditorWidget::ctor()
 
     connect(this, SIGNAL(textChanged()),
             baseTextDocument(), SLOT(triggerPendingUpdates()));
+    connect(baseTextDocument(), SIGNAL(semanticUpdated(GoSemanticInfoPtr)),
+            this, SLOT(applySemantic(GoSemanticInfoPtr)));
 }
 
 } // namespace Internal

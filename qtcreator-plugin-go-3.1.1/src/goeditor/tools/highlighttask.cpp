@@ -1,13 +1,9 @@
 #include "highlighttask.h"
 #include "gocodetask.h"
+#include "goeditordocument.h"
 
 namespace GoEditor {
 namespace Internal {
-
-static bool _lesserRangePositionPredicate(const HighlightRange &a, const HighlightRange &b)
-{
-    return (a.line < b.line) || (a.line == b.line && a.column < b.column);
-}
 
 SingleShotHighlightTask::SingleShotHighlightTask()
 {
@@ -27,31 +23,29 @@ void SingleShotHighlightTask::setText(const QByteArray &text)
     m_text = text;
 }
 
-QFuture<TextEditor::HighlightingResult> SingleShotHighlightTask::start()
+SingleShotHighlightTask::Result SingleShotHighlightTask::start()
 {
-    this->setRunnable(this);
-    this->reportStarted();
-    QFuture<TextEditor::HighlightingResult> future = this->future();
+    m_highlightFuture.setRunnable(this);
+    m_semanticFuture.setRunnable(this);
+    m_highlightFuture.reportStarted();
+    m_semanticFuture.reportStarted();
+    Result result = {
+        m_highlightFuture.future(),
+        m_semanticFuture.future()
+    };
     QThreadPool::globalInstance()->start(this, QThread::LowestPriority);
-    return future;
+    return result;
 }
 
 void SingleShotHighlightTask::run()
 {
-    runHelper();
-    this->reportFinished();
-}
-
-void SingleShotHighlightTask::runHelper()
-{
     GocodeTask task(m_filename, m_text);
-    QList<HighlightRange> ranges = task.highlight();
-    qSort(ranges.begin(), ranges.end(), _lesserRangePositionPredicate);
+    QSharedPointer<GoSemanticInfo> sema = task.highlight();
     int lastLine = 0;
     QVector<TextEditor::HighlightingResult> results;
-    foreach (const HighlightRange &range, ranges) {
+    foreach (const GoHighlightRange &range, sema->ranges()) {
         lastLine = qMax(lastLine, range.line);
-        if (range.format == HighlightRange::Other || range.format == HighlightRange::Error)
+        if (range.format == GoHighlightRange::Other || range.format == GoHighlightRange::Error)
             continue;
 
         TextEditor::HighlightingResult hr;
@@ -61,7 +55,10 @@ void SingleShotHighlightTask::runHelper()
         hr.length = range.length;
         results.append(hr);
     }
-    reportResults(results);
+    m_highlightFuture.reportResults(results);
+    m_highlightFuture.reportFinished();
+    m_semanticFuture.reportResult(sema);
+    m_semanticFuture.reportFinished();
 }
 
 } // namespace Internal
