@@ -41,6 +41,12 @@ void SingleShotHighlightTask::run()
 {
     GosemkiProcess process(m_filename, m_text);
     QSharedPointer<GoSemanticInfo> sema = process.collectSemanticInfo();
+    if (sema.isNull()) {
+        m_highlightFuture.reportFinished();
+        m_semanticFuture.reportFinished();
+        return;
+    }
+
     int lastLine = 0;
     QVector<TextEditor::HighlightingResult> results;
     foreach (const GoHighlightRange &range, sema->ranges()) {
