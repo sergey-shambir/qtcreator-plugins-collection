@@ -164,8 +164,4 @@ void GoSemanticInfo::addRange(const GoHighlightRange &range)
     m_ranges.append(range);
 }
 
-
-
-
-
 } // namespace GoEditor

@@ -35,7 +35,6 @@ public:
 private:
     static GoEditorPlugin *m_instance;
     GoEditorFactory *m_factory;
-    QScopedPointer<TextEditor::TextEditorActionHandler> m_actionHandler;
     QSet<QString> m_goKeywords;
     QSet<QString> m_goPredeclaratedTypes;
     QSet<QString> m_goPredeclaratedConsts;

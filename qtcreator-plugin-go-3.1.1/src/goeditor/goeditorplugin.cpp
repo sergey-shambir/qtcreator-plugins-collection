@@ -147,13 +147,6 @@ bool GoEditorPlugin::initialize(const QStringList &arguments, QString *errorStri
     addAutoReleasedObject(new GoCompletionAssistProvider);
     addAutoReleasedObject(new GoHoverHandler(this));
 
-    m_actionHandler.reset(new TextEditor::TextEditorActionHandler(
-                              this,
-                              C_GOEDITOR_ID,
-                              TextEditor::TextEditorActionHandler::Format
-                              | TextEditor::TextEditorActionHandler::UnCommentSelection
-                              | TextEditor::TextEditorActionHandler::UnCollapseAll));
-
     // Add MIME overlay icons (these icons displayed at Project dock panel)
     const QIcon icon = QIcon::fromTheme(QLatin1String(C_GO_MIME_ICON));
     if (!icon.isNull())
