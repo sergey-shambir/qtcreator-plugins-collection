@@ -14,12 +14,15 @@ public:
     explicit GoEditorDocument();
     ~GoEditorDocument();
 
+public slots:
+    void deferSemanticUpdate();
+
 signals:
     void semanticUpdated(const GoSemanticInfoPtr &semantic);
 
 protected:
-    void applyFontSettings();
-    void triggerPendingUpdates();
+    void applyFontSettings() override;
+    void triggerPendingUpdates() override;
 
 private slots:
     void updateSemaHighlightsNow();

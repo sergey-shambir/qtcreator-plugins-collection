@@ -20,7 +20,7 @@ void GoSemanticInfo::applyCodeFolding(QTextDocument *document)
     int blockIdx = 0;
     int areaIdx = 0;
     for (int n = m_foldAreas.size(); areaIdx < n; ++areaIdx) {
-        int lineFrom = m_foldAreas[areaIdx].lineFrom;
+        int lineFrom = qMin(m_foldAreas[areaIdx].lineFrom, levelPerBlock.size());
         for (; blockIdx < lineFrom; ++blockIdx) {
             levelPerBlock[blockIdx] = areaIdx;
         }
@@ -31,7 +31,7 @@ void GoSemanticInfo::applyCodeFolding(QTextDocument *document)
     blockIdx = 0;
     areaIdx = 0;
     for (int n = m_foldAreas.size(); areaIdx < n; ++areaIdx) {
-        int lineTo = m_foldAreas[areaIdx].lineTo;
+        int lineTo = qMin(m_foldAreas[areaIdx].lineTo, levelPerBlock.size());
         for (; blockIdx < lineTo; ++blockIdx) {
             levelPerBlock[blockIdx] -= areaIdx;
         }

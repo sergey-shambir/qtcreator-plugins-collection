@@ -59,7 +59,7 @@ void GoEditorWidget::ctor()
     setCodeFoldingSupported(true);
 
     connect(this, SIGNAL(textChanged()),
-            baseTextDocument(), SLOT(triggerPendingUpdates()));
+            baseTextDocument(), SLOT(deferSemanticUpdate()));
     connect(baseTextDocument(), SIGNAL(semanticUpdated(GoSemanticInfoPtr)),
             this, SLOT(applySemantic(GoSemanticInfoPtr)));
 }

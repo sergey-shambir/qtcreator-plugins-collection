@@ -29,7 +29,7 @@ public:
     void setText(const QByteArray &text);
 
     Result start();
-    void run();
+    void run() override;
 
 private:
     QFutureInterface<TextEditor::HighlightingResult> m_highlightFuture;

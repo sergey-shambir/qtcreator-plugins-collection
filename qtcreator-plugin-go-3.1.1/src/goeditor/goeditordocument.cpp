@@ -35,6 +35,11 @@ GoEditorDocument::~GoEditorDocument()
 {
 }
 
+void GoEditorDocument::deferSemanticUpdate()
+{
+    m_semaHighlightsUpdater->start();
+}
+
 void GoEditorDocument::applyFontSettings()
 {
     BaseTextDocument::applyFontSettings();
