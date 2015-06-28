@@ -3,12 +3,14 @@
 #include "tools/goindenter.h"
 #include "tools/gocodetask.h"
 #include "tools/highlighttask.h"
+#include <texteditor/tabsettings.h>
 #include <QTimer>
 #include <QTextDocument>
 
 static const int UPDATE_HIGHLIGHTS_INTERVAL_MSEC = 250;
 
 using namespace ::GoEditor::Internal;
+using TextEditor::TabSettings;
 
 namespace GoEditor {
 
@@ -23,6 +25,7 @@ GoEditorDocument::GoEditorDocument()
             this, SLOT(finishSemaHighlights()));
     connect(&m_semanticWatcher, SIGNAL(resultsReadyAt(int,int)),
             this, SLOT(acceptSemantic(int,int)));
+    connect(this, SIGNAL(tabSettingsChanged()), this, SLOT(fixTabSettings()));
 
     m_semaHighlightsUpdater = new QTimer(this);
     m_semaHighlightsUpdater->setSingleShot(true);
@@ -106,6 +109,18 @@ void GoEditorDocument::acceptSemantic(int from, int to)
     GoSemanticInfoPtr sema = m_semanticWatcher.resultAt(from);
     sema->applyCodeFolding(document());
     emit semanticUpdated(sema);
+}
+
+void GoEditorDocument::fixTabSettings()
+{
+    // Prevent recursive call from signal.
+    if (m_isFixingTabSettings)
+        return;
+    m_isFixingTabSettings = true;
+    TabSettings settings = tabSettings();
+    settings.m_tabPolicy = TabSettings::TabsOnlyTabPolicy;
+    setTabSettings(settings);
+    m_isFixingTabSettings = false;
 }
 
 } // namespace GoEditor

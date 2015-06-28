@@ -29,6 +29,7 @@ private slots:
     void acceptSemaHighlights(int from, int to);
     void finishSemaHighlights();
     void acceptSemantic(int from, int to);
+    void fixTabSettings();
 
 private:
     int m_indexRevision = 0;
@@ -36,6 +37,7 @@ private:
     QFutureWatcher<GoSemanticInfoPtr> m_semanticWatcher;
     QHash<int, QTextCharFormat> m_highlightFormatMap;
     QTimer *m_semaHighlightsUpdater = nullptr;
+    bool m_isFixingTabSettings = false;
 };
 
 } // namespace GoEditor
