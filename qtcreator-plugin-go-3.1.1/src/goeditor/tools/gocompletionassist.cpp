@@ -1,5 +1,6 @@
 #include "gocompletionassist.h"
 #include "../goeditorconstants.h"
+#include "gocodeprocess.h"
 
 #include <texteditor/completionsettings.h>
 #include <texteditor/codeassist/basicproposalitem.h>
@@ -88,8 +89,8 @@ TextEditor::IAssistProposal *GoCompletionAssistProcessor::perform(const TextEdit
     m_interface.reset(static_cast<const TextEditor::DefaultAssistInterface *>(interface));
     deduceContext();
 
-    GocodeTask task(interface->fileName(), interface->textDocument()->toPlainText().toUtf8());
-    QList<CodeCompletion> completions = task.codeCompleteAt(interface->position());
+    GocodeProcess process(interface->fileName(), interface->textDocument()->toPlainText().toUtf8());
+    QList<CodeCompletion> completions = process.codeCompleteAt(interface->position());
 
     TextEditor::IAssistProposal *proposal = NULL;
     if (m_context.isFunctionCompletion) {
@@ -97,8 +98,6 @@ TextEditor::IAssistProposal *GoCompletionAssistProcessor::perform(const TextEdit
         foreach (const CodeCompletion &cc, completions) {
             if (cc.kind == CodeCompletion::Func && m_context.functionName == cc.text)
                 functions.append(cc);
-            if (cc.kind == CodeCompletion::Func)
-                qDebug() << m_context.functionName << cc.text;
         }
         TextEditor::IFunctionHintProposalModel *model = new GoFunctionHintProposalModel(functions);
         proposal = new TextEditor::FunctionHintProposal(m_context.startPosition, model);

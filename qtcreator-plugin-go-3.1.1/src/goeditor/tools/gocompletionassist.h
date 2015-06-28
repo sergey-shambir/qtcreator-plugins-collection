@@ -1,7 +1,7 @@
 #ifndef GOEDITOR_INTERNAL_GOCOMPLETIONASSIST_H
 #define GOEDITOR_INTERNAL_GOCOMPLETIONASSIST_H
 
-#include "gocodetask.h"
+#include "gocodeprocess.h"
 
 #include <texteditor/codeassist/completionassistprovider.h>
 #include <texteditor/codeassist/iassistprocessor.h>

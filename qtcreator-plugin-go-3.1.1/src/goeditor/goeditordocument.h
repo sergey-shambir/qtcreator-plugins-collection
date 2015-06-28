@@ -1,7 +1,7 @@
 #pragma once
 #include "goeditor_global.h"
 #include <texteditor/basetextdocument.h>
-#include "tools/gocodetask.h"
+#include "tools/gosemanticinfo.h"
 #include "tools/highlighttask.h"
 #include <QFutureWatcher>
 
@@ -13,6 +13,8 @@ class GOEDITOR_EXPORT GoEditorDocument : public TextEditor::BaseTextDocument
 public:
     explicit GoEditorDocument();
     ~GoEditorDocument();
+
+    bool save(QString *errorString, const QString &fileName, bool autoSave) override;
 
 public slots:
     void deferSemanticUpdate();

@@ -12,6 +12,7 @@ License: LGPL + Qt exception
 Provides editor with code completion for Golang
 * code completion needs /usr/bin/gocode, see https://github.com/nsf/gocode
 * semantic highlighting needs /usr/bin/gosemki, see https://github.com/sergey-shambir/gosemki
+* auto-formatting code on save needs gofmt installed and added to $PATH.
 
 Author: Sergey Shambir.
 

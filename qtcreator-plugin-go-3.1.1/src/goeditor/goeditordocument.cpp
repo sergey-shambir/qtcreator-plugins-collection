@@ -1,9 +1,10 @@
 #include "goeditordocument.h"
 #include "tools/gohighlighter.h"
 #include "tools/goindenter.h"
-#include "tools/gocodetask.h"
 #include "tools/highlighttask.h"
+#include "tools/gofmtprocess.h"
 #include <texteditor/tabsettings.h>
+#include <coreplugin/messagemanager.h>
 #include <QTimer>
 #include <QTextDocument>
 
@@ -36,6 +37,21 @@ GoEditorDocument::GoEditorDocument()
 
 GoEditorDocument::~GoEditorDocument()
 {
+}
+
+bool GoEditorDocument::save(QString *errorString, const QString &fileName, bool autoSave)
+{
+    if (!BaseTextDocument::save(errorString, fileName, autoSave))
+        return false;
+
+    GofmtProcess process(filePath());
+    QString reloadError;
+    if (process.runFormatting() && !reload(&reloadError)) {
+        QLatin1String prefix("GoEditor: reload formatted code failed. ");
+        Core::MessageManager::write(prefix + reloadError);
+    }
+
+    return true;
 }
 
 void GoEditorDocument::deferSemanticUpdate()

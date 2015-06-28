@@ -1,5 +1,5 @@
 #include "highlighttask.h"
-#include "gocodetask.h"
+#include "gosemkiprocess.h"
 #include "goeditordocument.h"
 
 namespace GoEditor {
@@ -39,8 +39,8 @@ SingleShotHighlightTask::Result SingleShotHighlightTask::start()
 
 void SingleShotHighlightTask::run()
 {
-    GocodeTask task(m_filename, m_text);
-    QSharedPointer<GoSemanticInfo> sema = task.highlight();
+    GosemkiProcess process(m_filename, m_text);
+    QSharedPointer<GoSemanticInfo> sema = process.collectSemanticInfo();
     int lastLine = 0;
     QVector<TextEditor::HighlightingResult> results;
     foreach (const GoHighlightRange &range, sema->ranges()) {
