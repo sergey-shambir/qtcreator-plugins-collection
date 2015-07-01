@@ -87,6 +87,9 @@ private:
     FolderNode *findOrCreateFolderByName(const QStringList &components, int end, ProjectExplorer::VirtualFolderNode* virtualRoot);
 
 private:
+    bool hasSubfolder(const QString &path, const QString &rootDir, FolderNode *rootNode) const;
+    bool hasFileInProject(const QString &filePath);
+
     GoProject *m_project;
     Core::IDocument *m_projectFile;
     QHash<QString, FolderNode *> m_folderByName;

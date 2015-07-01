@@ -166,8 +166,10 @@ bool GoProjectNode::removeSubProjects(const QStringList &proFilePaths) {
     return false;
 }
 
-bool GoProjectNode::addFiles(const QStringList &, QStringList *) {
-    return false;
+bool GoProjectNode::addFiles(const QStringList &files, QStringList *notAdded) {
+    Q_UNUSED(files);
+    Q_UNUSED(notAdded);
+    return true;
 }
 
 bool GoProjectNode::removeFiles(const QStringList &, QStringList *) {
