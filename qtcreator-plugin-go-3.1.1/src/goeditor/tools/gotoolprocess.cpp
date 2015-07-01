@@ -1,8 +1,8 @@
 #include "gotoolprocess.h"
-#include <coreplugin/messagemanager.h>
 #include <QProcess>
 #include <QDir>
 #include <QFileInfo>
+#include <QDebug>
 
 namespace GoEditor {
 
@@ -41,8 +41,9 @@ void GoToolProcess::setToolCommand(const QString &toolCommand)
 
 void GoToolProcess::reportError(const QString &text) const
 {
+    // Don't use Core::MessageManager - it causes crash when reportError() from completion assistant.
     QString prefix(GOEDITOR_ERROR_PREFIX);
-    Core::MessageManager::write(prefix.arg(m_toolCommand) + text);
+    qDebug() << prefix.arg(m_toolCommand) + text;
 }
 
 bool GoToolProcess::runTool(const QStringList &arguments, QByteArray &response)

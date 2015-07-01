@@ -6,7 +6,6 @@
 
 namespace GoEditor {
 
-static QLatin1String WARN_PANIC_CLASS("Daemon panic() happened.");
 static QLatin1String WARN_UNKNOWN_CLASS("Unknown completion class '%1'.");
 static QLatin1String ERROR_JSON_PARSING_FAILED("Cannot parse JSON response. JSON error: %2");
 static QLatin1String PANIC_COMPLETION_CLASS("PANIC");
@@ -90,8 +89,6 @@ CodeCompletion::Kind GocodeProcess::kindFromString(const QString &string) const
     auto it = m_kindsMap.find(string);
     if (it == m_kindsMap.end()) {
         if (string == PANIC_COMPLETION_CLASS) {
-            reportError(WARN_PANIC_CLASS);
-        } else {
             reportError(QString(WARN_UNKNOWN_CLASS).arg(string));
         }
         return CodeCompletion::Other;
