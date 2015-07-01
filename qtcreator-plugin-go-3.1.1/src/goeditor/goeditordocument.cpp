@@ -7,11 +7,13 @@
 #include <coreplugin/messagemanager.h>
 #include <QTimer>
 #include <QTextDocument>
+#include <utils/textfileformat.h>
 
 static const int UPDATE_HIGHLIGHTS_INTERVAL_MSEC = 250;
 
 using namespace ::GoEditor::Internal;
 using TextEditor::TabSettings;
+using Utils::TextFileFormat;
 
 namespace GoEditor {
 
@@ -44,9 +46,13 @@ bool GoEditorDocument::save(QString *errorString, const QString &fileName, bool 
     if (!BaseTextDocument::save(errorString, fileName, autoSave))
         return false;
 
+    // Don't format on autosave.
+    if (autoSave)
+        return true;
+
     GofmtProcess process(filePath());
     QString reloadError;
-    if (process.runFormatting() && !reload(&reloadError)) {
+    if (process.runFormatting() && !reloadKeepHistory(reloadError)) {
         QLatin1String prefix("GoEditor: reload formatted code failed. ");
         Core::MessageManager::write(prefix + reloadError);
     }
@@ -137,6 +143,28 @@ void GoEditorDocument::fixTabSettings()
     settings.m_tabPolicy = TabSettings::TabsOnlyTabPolicy;
     setTabSettings(settings);
     m_isFixingTabSettings = false;
+}
+
+bool GoEditorDocument::reloadKeepHistory(QString &errorString)
+{
+    emit aboutToReload();
+    QString text;
+    QByteArray errorSample;
+    TextFileFormat textFormat;
+    ReadResult result = TextFileFormat::readFile(filePath(), codec(), &text, &textFormat, &errorString, &errorSample);
+    bool success = false;
+    if (result == TextFileFormat::ReadSuccess) {
+        success = true;
+        QTextCursor cursor(document());
+        cursor.beginEditBlock();
+        cursor.movePosition(QTextCursor::Start);
+        cursor.movePosition(QTextCursor::End, QTextCursor::KeepAnchor);
+        cursor.insertText(text);
+        cursor.endEditBlock();
+        document()->setModified(false);
+    }
+    emit reloadFinished(success);
+    return success;
 }
 
 } // namespace GoEditor

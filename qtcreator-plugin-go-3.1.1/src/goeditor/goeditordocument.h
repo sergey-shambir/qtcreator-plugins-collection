@@ -34,6 +34,8 @@ private slots:
     void fixTabSettings();
 
 private:
+    bool reloadKeepHistory(QString &errorString);
+
     int m_indexRevision = 0;
     QFutureWatcher<TextEditor::HighlightingResult> m_indexerWatcher;
     QFutureWatcher<GoSemanticInfoPtr> m_semanticWatcher;
