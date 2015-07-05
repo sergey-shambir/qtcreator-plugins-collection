@@ -20,7 +20,9 @@ SOURCES += goeditorplugin.cpp \
     tools/gotoolprocess.cpp \
     tools/gocodeprocess.cpp \
     tools/gofmtprocess.cpp \
-    tools/gosemkiprocess.cpp
+    tools/gosemkiprocess.cpp \
+    tools/gooutlinemodel.cpp \
+    tools/gooutlinewidget.cpp
 
 HEADERS += goeditorplugin.h \
     goeditor_global.h \
@@ -40,7 +42,9 @@ HEADERS += goeditorplugin.h \
     tools/gotoolprocess.h \
     tools/gocodeprocess.h \
     tools/gofmtprocess.h \
-    tools/gosemkiprocess.h
+    tools/gosemkiprocess.h \
+    tools/gooutlinemodel.h \
+    tools/gooutlinewidget.h
 
 RESOURCES += \
     goeditorplugin.qrc

@@ -28,6 +28,7 @@ THE SOFTWARE.
 #include "goeditorwidget.h"
 #include "tools/gocompletionassist.h"
 #include "tools/gohoverhandler.h"
+#include "tools/gooutlinewidget.h"
 
 #include <coreplugin/icore.h>
 #include <coreplugin/icontext.h>
@@ -168,6 +169,7 @@ bool GoEditorPlugin::initialize(const QStringList &arguments, QString *errorStri
     m_factory = new GoEditorFactory(this);
     addObject(m_factory);
 
+    addAutoReleasedObject(new GoOutlineWidgetFactory);
     addAutoReleasedObject(new GoCompletionAssistProvider);
     addAutoReleasedObject(new GoHoverHandler(this));
 

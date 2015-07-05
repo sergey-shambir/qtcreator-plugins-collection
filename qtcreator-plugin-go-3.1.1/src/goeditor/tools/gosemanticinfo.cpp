@@ -32,6 +32,17 @@ namespace GoEditor {
 using TextEditor::BaseTextDocumentLayout;
 using TextEditor::TextBlockUserData;
 
+quint64 GoPosition::encodePosition() const
+{
+    return (quint64(line) << 32) + quint64(column);
+}
+
+void GoPosition::decodePosition(quint64 pos)
+{
+    line = int(quint32(pos >> 32));
+    column = int(quint32(pos));
+}
+
 // FIXME: doesn't work at all.
 void GoSemanticInfo::applyCodeFolding(QTextDocument &document)
 {

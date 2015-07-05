@@ -75,7 +75,7 @@ void SingleShotHighlightTask::run()
     QVector<TextEditor::HighlightingResult> results;
     foreach (const GoHighlightRange &range, sema->ranges()) {
         lastLine = qMax(lastLine, range.line);
-        if (range.format == GoHighlightRange::Other || range.format == GoHighlightRange::Error)
+        if (range.format == GoHighlightRange::Other)
             continue;
 
         TextEditor::HighlightingResult hr;

@@ -33,39 +33,41 @@ namespace TextEditor { class BaseTextEditorWidget; }
 
 namespace GoEditor {
 
+struct GoPosition
+{
+    int line = 1;       // 1-based
+    int column = 1;     // 1-based
+
+    quint64 encodePosition() const;
+    void decodePosition(quint64 pos);
+};
+
 struct GoFoldArea
 {
-public:
     int lineFrom = 1;   // 1-based
     int lineTo = 1;     // 1-based
 };
 
-struct GoOutlineItem
+struct GoOutlineItem : public GoPosition
 {
-public:
     enum Kind {
         Func,
         Struct
     };
 
-    int line = 1;       // 1-based
-    int column = 1;     // 1-based
     QString title;
     Kind kind = Func;
 };
 
-struct GoError
+struct GoError : public GoPosition
 {
-public:
-    int line = 1;       // 1-based
-    int column = 1;     // 1-based
     int length = 0;
     QString message;
 };
 
-struct GoHighlightRange {
+struct GoHighlightRange : public GoPosition
+{
     enum Format {
-        Error,
         Field,
         Func,
         Label,
@@ -76,10 +78,8 @@ struct GoHighlightRange {
         Other
     };
 
-    Format format;
-    int line;
-    int column;
-    int length;
+    Format format = Other;
+    int length = 0;
 };
 
 class GoSemanticInfo
