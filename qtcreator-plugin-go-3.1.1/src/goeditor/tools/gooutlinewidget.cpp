@@ -37,6 +37,7 @@ GoOutlineWidget::GoOutlineWidget(Internal::GoEditorWidget *editorWidget)
             this, SLOT(updateSelectionInText(QItemSelection)));
 
     setLayout(layout);
+    applySemanticInfo(document->semanticInfo());
 }
 
 QList<QAction *> GoOutlineWidget::filterMenuActions() const
@@ -55,7 +56,7 @@ void GoOutlineWidget::setCursorSynchronization(bool syncWithCursor)
 
 void GoOutlineWidget::applySemanticInfo(const GoSemanticInfoPtr &semantic)
 {
-    if (m_sourceModel) {
+    if (semantic && m_sourceModel) {
         m_sourceModel->update(*semantic);
         m_treeView->expandAll();
     }

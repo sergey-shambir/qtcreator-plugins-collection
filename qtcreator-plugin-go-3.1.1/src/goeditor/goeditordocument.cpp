@@ -32,6 +32,7 @@ THE SOFTWARE.
 #include <QTimer>
 #include <QTextDocument>
 #include <utils/textfileformat.h>
+#include "tools/gosemanticinfo.h"
 
 static const int UPDATE_HIGHLIGHTS_INTERVAL_MSEC = 250;
 
@@ -63,6 +64,11 @@ GoEditorDocument::GoEditorDocument()
 
 GoEditorDocument::~GoEditorDocument()
 {
+}
+
+const GoSemanticInfoPtr &GoEditorDocument::semanticInfo() const
+{
+    return m_semanticInfo;
 }
 
 bool GoEditorDocument::save(QString *errorString, const QString &fileName, bool autoSave)
@@ -152,12 +158,12 @@ void GoEditorDocument::acceptSemantic(int from, int to)
     Q_UNUSED(to);
     if (m_indexRevision != document()->revision() || m_semanticWatcher.isCanceled())
             return; // aborted
-    GoSemanticInfoPtr sema = m_semanticWatcher.resultAt(from);
+    m_semanticInfo = m_semanticWatcher.resultAt(from);
     // FIXME: doesn't work at all.
 #if 0
-    sema->applyCodeFolding(document());
+    m_semanticInfo->applyCodeFolding(document());
 #endif
-    emit semanticUpdated(sema);
+    emit semanticUpdated(m_semanticInfo);
 }
 
 void GoEditorDocument::fixTabSettings()

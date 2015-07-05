@@ -25,11 +25,14 @@ THE SOFTWARE.
 #pragma once
 #include "goeditor_global.h"
 #include <texteditor/basetextdocument.h>
-#include "tools/gosemanticinfo.h"
 #include "tools/highlighttask.h"
 #include <QFutureWatcher>
+#include <QSharedPointer>
 
 namespace GoEditor {
+
+class GoSemanticInfo;
+typedef QSharedPointer<GoSemanticInfo> GoSemanticInfoPtr;
 
 class GOEDITOR_EXPORT GoEditorDocument : public TextEditor::BaseTextDocument
 {
@@ -38,6 +41,8 @@ public:
     explicit GoEditorDocument();
     ~GoEditorDocument();
 
+    /// Can return nullptr.
+    const GoSemanticInfoPtr &semanticInfo() const;
     bool save(QString *errorString, const QString &fileName, bool autoSave) override;
 
 public slots:
@@ -66,6 +71,7 @@ private:
     QHash<int, QTextCharFormat> m_highlightFormatMap;
     QTimer *m_semaHighlightsUpdater = nullptr;
     bool m_isFixingTabSettings = false;
+    GoSemanticInfoPtr m_semanticInfo;
 };
 
 } // namespace GoEditor
