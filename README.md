@@ -9,10 +9,16 @@ This plugin provided by Canonical, Ltd. under LGPL license. It contains addition
 License: LGPL + Qt exception
 
 ## GoEditor
-Provides editor with code completion for Golang
+Provides semantic-sensitive editor for Golang
 * code completion needs /usr/bin/gocode, see https://github.com/nsf/gocode
 * semantic highlighting needs /usr/bin/gosemki, see https://github.com/sergey-shambir/gosemki
-* auto-formatting code on save needs gofmt installed and added to $PATH.
+* auto-formatting code on save needs gofmt installed and added to $PATH (on Linux just install go packages)
+
+How to build:
+* Switch to Project Mode (Ctrl+5)
+* In "Build Steps" category, expand qmake build step and enter additional arguments "UBUNTU_LOCAL_BUILD=1"
+* Build project
+* Restart QtCreator and check if plugin is enabled in menu Help > "About Plugins"
 
 Author: Sergey Shambir.
 
