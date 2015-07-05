@@ -25,7 +25,6 @@ THE SOFTWARE.
 </license>
     <description>Enables semantic functions when editing Go language code</description>
     <category>Golang</category>
-    <url>mailto:sshambir@gmail.com</url>
+    <url>https://github.com/sergey-shambir/qtcreator-plugins-collection</url>
     $$dependencyList
 </plugin>
-
