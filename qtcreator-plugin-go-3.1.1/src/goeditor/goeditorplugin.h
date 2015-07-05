@@ -52,6 +52,13 @@ public:
     static QSet<QString> goPredeclaratedTypes();
     static QSet<QString> goPredeclaratedConsts();
     static QSet<QString> goPredeclaratedFuncs();
+    static void reportToolNotInstalled(const QString &toolCommand);
+
+signals:
+    void reportedError(QString errorMessage);
+
+private slots:
+    void reportErrorOnce(const QString &errorMessage);
 
 private:
     static GoEditorPlugin *m_instance;
@@ -60,6 +67,7 @@ private:
     QSet<QString> m_goPredeclaratedTypes;
     QSet<QString> m_goPredeclaratedConsts;
     QSet<QString> m_goPredeclaratedFuncs;
+    QSet<QString> m_reportedErrors;
 };
 
 } // namespace Internal

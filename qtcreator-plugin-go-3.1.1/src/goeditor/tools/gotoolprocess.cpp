@@ -23,6 +23,7 @@ THE SOFTWARE.
 *******************************************************************************/
 
 #include "gotoolprocess.h"
+#include "../goeditorplugin.h"
 #include <QProcess>
 #include <QDir>
 #include <QFileInfo>
@@ -32,6 +33,9 @@ namespace GoEditor {
 
 static QLatin1String GOEDITOR_ERROR_PREFIX("GoEditor: %1 failed. ");
 static QLatin1String ERROR_TIMEOUT_EXCEEED("Waiting timeout exceed.");
+static QLatin1String ERROR_TOOL_NOT_INSTALLED("Program not installed.");
+static QLatin1String ERROR_TOOL_CRASH("Tool crashed.");
+static QLatin1String ERROR_TOOL_IO("I/O error when running external process");
 static QLatin1String ERROR_IN_PROCESS("Return code '%2', process stderr:\n%3");
 static const int COMPLETION_WAIT_TIME_MSEC = 3000;
 
@@ -80,8 +84,22 @@ bool GoToolProcess::runTool(const QStringList &arguments, QByteArray &response)
         tool.closeWriteChannel();
     }
     if (!tool.waitForFinished(COMPLETION_WAIT_TIME_MSEC)) {
-        reportError(ERROR_TIMEOUT_EXCEEED);
-        return false;
+        switch (tool.error()) {
+        case QProcess::FailedToStart:
+            // Tool is not installed
+            reportError(ERROR_TOOL_NOT_INSTALLED);
+            Internal::GoEditorPlugin::reportToolNotInstalled(m_toolCommand);
+            return false;
+        case QProcess::Crashed:
+            reportError(ERROR_TOOL_CRASH);
+            return false;
+        case QProcess::Timedout:
+            reportError(ERROR_TIMEOUT_EXCEEED);
+            return false;
+        default:
+            reportError(ERROR_TOOL_IO);
+            return false;
+        }
     }
     if (tool.exitCode() != 0) {
         reportError(QString(ERROR_IN_PROCESS).arg(QString::number(tool.exitCode()),

@@ -38,6 +38,7 @@ THE SOFTWARE.
 #include <coreplugin/actionmanager/command.h>
 #include <coreplugin/actionmanager/actioncontainer.h>
 #include <coreplugin/coreconstants.h>
+#include <coreplugin/messagemanager.h>
 #include <texteditor/texteditorsettings.h>
 
 #include <QAction>
@@ -47,6 +48,8 @@ THE SOFTWARE.
 
 using namespace GoEditor::Internal;
 using namespace GoEditor::Constants;
+
+static const QLatin1String ERROR_TOOL_NOT_INSTALLED("GoEditor: Program '%1' is not installed. Please install it to enable all editor features.");
 
 /*******************************************************************************
  * List of Go keywords
@@ -150,6 +153,7 @@ GoEditorPlugin::GoEditorPlugin()
     copyIdentifiers(LIST_OF_GO_TYPES, sizeof(LIST_OF_GO_TYPES), m_goPredeclaratedTypes);
     copyIdentifiers(LIST_OF_GO_CONSTANTS, sizeof(LIST_OF_GO_CONSTANTS), m_goPredeclaratedConsts);
     copyIdentifiers(LIST_OF_GO_FUNCS, sizeof(LIST_OF_GO_FUNCS), m_goPredeclaratedFuncs);
+    connect(this, SIGNAL(reportedError(QString)), this, SLOT(reportErrorOnce(QString)));
 }
 
 GoEditorPlugin::~GoEditorPlugin()
@@ -208,6 +212,20 @@ QSet<QString> GoEditorPlugin::goPredeclaratedConsts()
 QSet<QString> GoEditorPlugin::goPredeclaratedFuncs()
 {
     return m_instance->m_goPredeclaratedFuncs;
+}
+
+void GoEditorPlugin::reportToolNotInstalled(const QString &toolCommand)
+{
+    QString errorMessage(ERROR_TOOL_NOT_INSTALLED);
+    emit m_instance->reportedError(errorMessage.arg(toolCommand));
+}
+
+void GoEditorPlugin::reportErrorOnce(const QString &errorMessage)
+{
+    if (!m_reportedErrors.contains(errorMessage)) {
+        m_reportedErrors.insert(errorMessage);
+        Core::MessageManager::write(errorMessage);
+    }
 }
 
 Q_EXPORT_PLUGIN2(GoEditor, GoEditorPlugin)
